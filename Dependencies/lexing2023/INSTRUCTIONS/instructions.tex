@@ -1,0 +1,468 @@
+
+\documentclass{article}
+\title{Using the Tokenizing Tools of Maphoon}
+\author{Dina Muktubayeva and Hans de Nivelle}
+
+\begin{document}
+
+\maketitle
+\begin{abstract}
+   We describe how the tokenizing tools of MaphTT are
+   used. 
+\end{abstract}
+
+\section{Quick Start for the Impatient}
+
+Get the files from directory \verb+lexing+.
+Create a main file that contains \\
+\verb+main( int argc, char* argv[] ) { }.+
+You can also use the existing file \verb+tester.cpp+. 
+Make sure that the file contains the following includes: 
+\begin{verbatim}
+#include "algorithms.h"
+#include "minimization.h"
+#include "generators.h"
+#include "deterministic.h" \end{verbatim}
+Make sure that your compiler compiles it. 
+
+\noindent
+Now suppose we want to obtain the automaton for
+regular expression 
+\[  (\, a|b \, )^{*} \, | \, a^{*}. \]
+Write: 
+\begin{verbatim}
+   using namespace lexing; 
+
+   acceptor<char> reg = ( just('a') | just('b') ).star( ) |
+                          just('a'). star( );
+
+   std::cout << reg << "\n"; \end{verbatim}
+This prints an acceptor that accepts the regular expression. 
+As next step, we want to make this automaton deterministic.
+Because MaphTT has no operations on 
+\verb+acceptor+, except for constructing them, 
+we need to obtain a classifier first.
+A classifier has two template parameters, the alphabet
+and the type that we are using for the token classes.
+If one cares about efficiency, the token class
+should be \verb+int+ or a dedicated \verb+enum+ type.
+We don't care about efficiency, so we just use
+\verb+std::string+. When a classifier is constructed,
+one needs to provide the default classification
+that will be used when classification fails.
+
+\begin{verbatim}
+   classifier< char, std::string > cl( "#error" );
+   cl. insert( reg, "#ourlang" ); 
+   std::cout << cl << "\n"; \end{verbatim}
+When the classifier is printed, it only prints the
+classifications of states that do not classify as
+\verb+#error+. 
+We see a lot of $ \epsilon $-transitions, starting
+from \verb+Q0+, so we write
+\begin{verbatim}
+   cl = make_deterministic( cl ); 
+   std::cout << cl << "\n"; \end{verbatim}
+Unfortunately, this results in a \verb+logic_error+, 
+with an additional message that \verb+empty word classifies as #ourlang+.
+This is caused by the fact that the original
+expression accepts the empty word, which would 
+make it impossible to construct a usable tokenizer. 
+The empty word
+would be a valid token, and the tokenizer
+would keep on returning this token forever. 
+The problem can be solved by replacing 
+\verb+.star( )+ by \verb+.plus( )+ or by adding
+a terminator. We will add (;) as terminator.
+Add the line 
+\begin{verbatim}
+   reg *= just( ';' );  \end{verbatim}
+Now the code runs and constructs an automaton with
+5 states. This is ridiculously many of course. 
+We can add: 
+\begin{verbatim}
+   std::cout << "minimization\n";
+   cl = minimize( cl ); 
+   std::cout << cl << "\n"; \end{verbatim}
+This results in a classifier with two states. 
+The final classifier is readable. 
+State \verb+Q0+ loops on $a,b$ and jumps to 
+\verb+Q1+ when a (;) is encountered.
+ 
+\section{Creating a Prototype} 
+
+\noindent
+Assume we want to create a calculator, whose tokens are
+\begin{itemize}
+\item
+   Identifiers. 
+\item
+   Floating point numbers. 
+\item
+   A few operators: \  \verb|+, -, *, /, %|.
+\item
+   Opening and closing parentheses: \verb+( )+.
+\item
+   Semicolon to end the input: (\verb+;+). 
+\end{itemize} 
+
+Since we are going to care about efficiency eventually,
+we create an enumeration type:
+\begin{verbatim}
+enum tclass
+{
+   tc_float = 1,
+   tc_ident = 2,
+   tc_add = 10, tc_sub = 11, tc_mul = 12, tc_div = 13, tc_mod = 14,
+   tc_lpar = 20, tc_rpar = 21,
+   tc_semicolon = 30
+}; \end{verbatim}
+
+\noindent
+When creating a tokenizer, we recommend that one 
+creates the classifier in a function. That 
+will be easier for the later steps. 
+So, we define
+\begin{verbatim}
+lexing::classifier< char, tclass > buildclassifier( )
+{
+   using namespace lexing;
+
+   classifier< char, tclass > cl( tc_error );
+
+   cl = make_deterministic(cl);
+   cl = minimize(cl); 
+   return cl;
+} \end{verbatim}
+Adding tokens is straightforward:
+\begin{verbatim}
+   auto idfirst = range('a', 'z') | range('A', 'Z');
+   auto idnext = range('a', 'z') | range('A', 'Z') |
+                 just('_') | range('0', '9');
+
+
+   auto number = (just('0') |
+               (range('1', '9') * range('0', '9').star()));
+
+   cl. insert( idfirst * idnext.star(), tc_ident );
+
+   auto exp = ( just( 'e' ) | just( 'E' )) *
+                 ( just( '-' ) | just( '+' )). optional( ) *
+                 ( range( '0', '9' ). optional( ) *
+                   range( '0', '9' ). optional( ) *
+                   range( '0', '9' ). optional( ));
+
+   auto floatconst = number *
+               ( just('.') * ( range('0', '9').plus()) ). optional( ) *
+                 exp. optional( );
+
+   cl. insert( floatconst, tc_float );
+
+   cl. insert( just( '+' ), tc_add );
+   cl. insert( just( '-' ), tc_sub );
+   cl. insert( just( '*' ), tc_mul );
+   cl. insert( just( '/' ), tc_div );
+   cl. insert( just( '%' ), tc_mod );
+
+   cl. insert( just( '(' ), tc_lpar );
+   cl. insert( just( ')' ), tc_rpar );
+
+   cl. insert( just( ';' ), tc_semicolon ); \end{verbatim}
+
+   \noindent
+   Token classes are printed as integers, which 
+   is a bit unpleasant. 
+   This problem can be solved by defining
+   \verb+operator <<+ on \verb+tclass+.
+   The parser generator\footnote{not ready for release} automatically creates 
+   \verb+enum+ classes from the grammar with print functions.
+
+   Currently, the classifier will reject whitespace,
+   so we add \verb+tc_whitespace = 40+ to \verb+tclass+ and add
+   the following code to \verb+buildclassifier+:
+   \begin{verbatim}
+   cl. insert( just( ' ' ) | just( '\t' ), tc_whitespace );
+
+   auto linecomment = word("//") *
+                    ( every<char>(). without('\n') ).star() * just('\n');
+   cl. insert( linecomment, tc_whitespace );
+
+   auto blockcomment = word("/*") *
+     ( every<char>().without('*') |
+       ( just('*').plus() * every<char>().without('/').without('*')).star()
+     ).star() * just('*').plus( ) * just('/');
+
+   cl. insert( blockcomment, tc_whitespace );  \end{verbatim}
+   Now the classifier classifies whitespace and both types
+   of $ C^{++} $-comments. 
+
+   \noindent
+   In addition to the constructors shown in the examples, one can also use
+   \verb+word( )+, which can be called with a 
+   string constant. 
+\section{Using a Classifier}
+
+In the previous section we constructed a classifier.
+MaphTT does not create complete tokenizers, it only helps
+with classifying. 
+In particular, it doesn't help with computing token attributes.
+We think it is no problem because most tokens have no attribute,
+and computing attributes is easy when the token has been classified.
+
+In order to classify input, one needs a class with at least the following 
+methods:
+\begin{itemize}
+\item
+   \verb+bool has(n)+. Make sure that there are at least
+   $ n $ characters in the buffer. Return \verb+true+ if this 
+   is guaranteed. 
+\item
+   \verb+C peek(i)+. Gets the $ i $-th character.
+   \verb+has(n)+ with $ n > i $ must have been called before, 
+   and must have succeeded. 
+\item
+   \verb+commit(i)+. Commit to $ i $ characters.
+   This means that $ i $ characters will be removed from
+   the buffer. 
+   \verb+has(n)+ with $ n \geq i $ must have been called before, 
+   and must have succeeded. 
+\end{itemize}
+We provide two classes that provide these methods: 
+\verb+filereader+ and \verb+stringreader+.
+
+\begin{itemize}
+\item
+   A filereader can be obtained as follows:
+\begin{verbatim}
+   filereader inp( &std::cin, "stdin" ); \end{verbatim}
+or
+\begin{verbatim}
+   std::string name = "filename"; 
+   std::ifstream inputfile( name ); 
+   filereader inp( &inputfile, name ); \end{verbatim}
+\item
+   A stringreader can be obtained as follows:
+\begin{verbatim}
+   stringreader inp( "3.14 / pi + 10" ); \end{verbatim}
+or
+\begin{verbatim}
+   std::string s = "input400 /*xxxx*/ ;";
+   stringreader inp(s);   \end{verbatim}
+or
+\begin{verbatim}
+   stringreader inp( std::move(s) ); \end{verbatim}
+\end{itemize}
+
+\noindent
+Once one has chosen the reader of one's fancy, one can call
+\begin{verbatim}
+   auto p = readandclassify( cl, inp ); \end{verbatim}
+The result has type \verb+std::pair<tclass,size_t>+, 
+where \verb+tclass+ is the recognized class and
+\verb+size_t+ the number of characters read. 
+We recommend to use \verb+readandclassify+ as follows: 
+\begin{verbatim}
+symbol gettoken( reader& inp )
+{
+   static auto cl = buildclassifier( ); 
+      
+restart: 
+   if( !inp. has(1))
+      return a symbol that marks end of file.
+
+   auto p = readandclassify( cl, inp );
+   if( p. second == 0 )
+   {
+      inp. commit(1); // to avoid looping forever
+      return a garbage token
+   }
+
+   if( p. first is among the whitespace tokens )
+   {
+      inp. commit( p. second ); 
+      goto restart;
+   }
+
+   if( p. first is a token that has an attribute )
+   {
+      attr = the attribute (use inp. get( )). 
+      inp. commit( p. second ); 
+      return symbol( p. first, attr );
+   }
+
+   inp. commit( p. second ); 
+   return symbol( p. first ); // without attribute.
+} \end{verbatim}  
+If choosing is hard, one can also write: 
+\begin{verbatim}
+template< typename S > symbol gettoken( S& inp )
+{
+ ...
+} \end{verbatim}
+
+\noindent
+If the user wants to create a different type of reader, this 
+can be easily done. Both \verb+filereader+ and
+\verb+stringreader+ have short implementations.
+
+\section{Making it Efficient}
+ 
+The tokenizer in the previous is convenient, but
+not efficient at all. The classifier is recomputed every time
+the program is restarted, and direct use of the
+classifier is not efficient, even when it is deterministic. 
+MaphTT provides two solutions:
+\begin{enumerate}
+\item
+   Create a table based classifier, like Lex or JFLEX.
+\item
+   Translate the classifier into directly executable
+   $ C^{++} $ code. 
+\end{enumerate} 
+
+\noindent
+The interface is primitive:
+In the function that builds the classifier, 
+one prints code that can be later compiled, and 
+which can replace the call to \verb+buildclassifier( )+.
+
+Since classifiers are polymorphic in 
+the character set \verb+C+ and the type 
+\verb+T+ used for classification,
+one needs to provide functions that print
+\verb+C+ and \verb+T+.
+In case of \verb+C = char+, this is easy, because
+\verb+char+ can be printed as integers:
+\begin{verbatim}
+   []( std::ostream& out, char c ) { out << (int)c; } \end{verbatim}
+One can also print \verb+char+ with single quotes, but then
+one has to take care of non-printable characters, which makes 
+the function too complicated to define in a single 
+lambda expression. 
+
+Dealing with \verb+tclass+ is a bit more tricky,
+because \verb+enum+ is not well-designed. 
+The best solution is to print them by their
+names, but then one has to define a print function
+for \verb+tclass+, and we didn't do 
+that\footnote{the parser generator will do it automatically}. 
+For the moment, we hack ourselves out of the situation by
+creating code that casts integers into tclass: 
+\begin{verbatim}
+[]( std::ostream& out, const tclass t ) 
+      { out << "((tclass) " << t << ")"; } ); \end{verbatim}
+
+\noindent
+We describe the details: 
+\begin{itemize}
+\item
+   If one wants to create a table based classifier,
+   one must use 
+\begin{verbatim}
+template< typename C, typename T > 
+void printdeterministic(
+   const std::string& Cname, const std::string& Tname,
+   const std::string& name,
+   const lexing::classifier<C,T> & cl, std::ostream& file,
+   const std::function< void( std::ostream& out, const C& c ) > & printC,
+   const std::function< void( std::ostream& out, const T& t ) > & printT ) \end{verbatim}
+The parameter \verb+Cname+ is the name of the character type,
+which \verb+"char"+ in our case. Similarly
+\verb+Tname+ must be \verb+"tclass"+. If \verb+C+ or
+\verb+T+ is in a namespace, the namespace must be included.
+Parameter \verb+name+ is the name that the function will receive.
+It should be something like \verb+"builddetclassifier+.
+
+Choose an unused file name (it will be overwritten!), 
+and insert
+\begin{verbatim}
+std::ofstream file( "det.h" );
+lexing::printdeterministic< char, tclass > (
+   "char", "tclass", "builddetclassifier",
+   cl, file,
+   []( std::ostream& out, char c ) { out << (int)c; },
+   []( std::ostream& out, const tclass t ) 
+      { out << "((tclass) " << t << ")"; } );
+file. close( ); 
+\end{verbatim}
+before the return statement. 
+
+When \verb+buildclassifier( )+ is called, it will construct
+the deterministic classifier. 
+
+Include the resulting file before function
+\verb+gettoken+, make sure that it compiles,
+and replace
+\begin{verbatim}
+symbol gettoken( reader& inp )
+{
+   static auto cl = buildclassifier( );
+\end{verbatim}
+by
+\begin{verbatim}
+symbol gettoken( reader& inp )
+{
+   // static auto cl = calculator( );
+   auto cl = builddetclassifier( ); \end{verbatim} 
+
+\item
+   The procedure for creating a classifier
+   in $ C^{++} $ code is similar.
+   The function that creates the code is:
+   \begin{verbatim}
+   template< typename C, typename T >
+   void printcode(
+      const std::string& Cname, const std::string& Tname,
+      const std::string& space,
+      const lexing::classifier<C,T> & cl, std::ostream& file,
+      const std::function< void( std::ostream& out, const C& t ) > & printC,
+      const std::function< void( std::ostream& out, const T& t ) > & printT ) \end{verbatim}
+The generated function will be called \verb+"readandclassify"+, 
+preceded by the namespace \verb+space+.
+If \verb+space == "myspace::"+, then the generated
+function will be called 
+\verb|"myspace::readandclassify"|. 
+
+\noindent
+At the end of \verb+buildclassifier+,
+insert: 
+\begin{verbatim}
+std::ofstream file( "directlycoded.h" );
+lexing::printcode< char, tclass > ( 
+   "char", "tclass", "",
+   cl, file,
+   []( std::ostream& out, char c ) { out << (int)c; },
+   []( std::ostream& out, const tclass t )
+      { out << "((tclass) " << t << ")"; } );
+file. close( );
+\end{verbatim}
+
+Include the resulting file before function
+\verb+gettoken+, make sure that it compiles,
+and replace
+\begin{verbatim}
+symbol gettoken( reader& inp )
+{
+   static auto cl = buildclassifier( );
+\end{verbatim}
+by
+\begin{verbatim}
+symbol gettoken( reader& inp )
+{
+   // static auto cl = calculator( );
+   int cl = 22; // Any int will do \end{verbatim}
+
+   Since the directly coded classifier 
+   does not need any additional data, 
+   one could in principle remove the variable
+   \verb+cl+, but if one does that, one
+   may have to put it back later when one wants to
+   change the classifier again. 
+   Because of this, we put an int in place of the classifier. 
+   The generated function \verb+readandclassify+ has
+   \verb+int+ as first parameter.
+\end{itemize}
+
+
+\end{document}
+ 

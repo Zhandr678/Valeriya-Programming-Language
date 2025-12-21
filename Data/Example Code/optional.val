@@ -1,0 +1,30 @@
+property Optional <T>
+{
+	has_value: { T val; }
+	nullopt  : { }
+}
+
+property Expected <T, V>
+{
+	expected  : { T val; }
+	unexpected: { V ue_val; }
+}
+
+fn value_or <T> (Optional <T> opt_val, T or_val) -> T
+{
+	match (opt_val)
+	{
+		case has_value -> { return val; }
+		case nullopt   -> { return or_val; }
+	}
+}
+
+fn div(double a, double b) -> Expected <double, str>
+{
+	if (b == 0) { return unexpected("NaN"); }
+
+	return expected(a / b);
+}
+
+auto d = div(5.0, 0.0);
+

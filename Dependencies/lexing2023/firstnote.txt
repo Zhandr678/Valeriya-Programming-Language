@@ -1,0 +1,12 @@
+
+   a..z A .. Z 0.. 9 
+   many times a..z A..Z 0..9 _
+
+   state eps      other transitions, interval based
+   1:    { }    a/1  z+1/error  A/1 (Z+1)/error 0/1 (9+1)/ error 
+   2:    {1}    a/0  z+1/error  A/0 (Z+1)/error 0/0 (9+1)/error _/0 _+1/error
+
+   while  :reads while
+
+    if you enter while into the trie, you have to put behind it,
+    everything that would cannot be an identifier. 

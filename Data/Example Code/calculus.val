@@ -1,0 +1,105 @@
+enum Angle
+{
+	Degree, Radians
+}
+
+property Expr 
+{
+    Const : { double value; }
+    Add   : { Expr a; Expr b; }
+    Sub   : { Expr a; Expr b; }
+    Mul   : { Expr a; Expr b; }
+    Div   : { Expr a; Expr b; }
+    Sin   : { Expr x; Angle angle; }
+    Cos   : { Expr x; Angle angle; }
+	Tan   : { Expr x; Angle angle; }
+	Sec   : { Cos x; Angle angle; }
+	Csc   : { Sin x; Angle angle; }
+	Cot   : { Tan x; Angle angle; }
+    Pow   : { Expr x; double e; }
+	Ln    : { Expr x; }
+	Log   : { Expr x, Expr base; }
+	
+    Var   : { str name; } 
+}
+
+// differentiate with respect to var
+fn diff(Expr e, str var) -> Expr 
+{
+	match (e) 
+	{
+        case Const -> { return Const(0); }
+
+        case Var -> {
+            return Const(name == var ? 1 : 0);
+        }
+
+        case Add -> {
+            return Add(diff(a, var), diff(b, var));
+        }
+
+        case Sub -> {
+            return Sub(diff(a, var), diff(b, var));
+        }
+
+        case Mul -> {
+            return Add(
+                Mul(diff(a,var), b),
+                Mul(a, diff(b,var))
+            );
+        }
+
+        case Div -> {
+            return Div(
+                Sub(
+                    Mul(diff(a,var), b),
+                    Mul(a, diff(b,var))
+                ),
+                Mul(b,b)
+            );
+        }
+
+        case Sin -> { return Mul(Cos(x), diff(x,var)); }
+        case Cos -> { return Mul(Const(-1), Mul(Sin(x), diff(x,var))); }
+		case Pow -> { return Mul(e, Mul(Pow(x, e - 1), diff(x))); }
+		...
+    }
+}
+
+// evaluate the calculus expression
+fn eval(Expr e) -> double
+{
+	match (e)
+	{
+		case Var   -> { throw "Cannot Evaluate with Variable"; }
+		case Const -> { return e.value; }
+		case Add   -> { return eval(e.a) + eval(e.b); }
+		case Sub   -> { return eval(e.a) - eval(e.b); }
+		case Mul   -> { return eval(e.a) * eval(e.b); }
+		case Div   -> { 
+			double a = eval(e.a);
+			double b = eval(e.b);
+			if (b == 0) { throw "Cannot Divide By 0"; }
+			return a / b; 
+		}
+		case Sin   -> {
+			return sin(eval(e.x)) // from <math.h>
+		}
+		case Cos   -> {
+			return cos(eval(e.x))
+		}
+		case Tan   -> {
+			double x = eval(e.x);
+			match (angle)
+			{
+				case Degree -> { 
+					return tandeg(x);
+				}
+				case Radians -> {
+					return tanrad(x);
+				}
+			}
+		}
+		// ...
+	}
+}
