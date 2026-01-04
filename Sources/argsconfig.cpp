@@ -4,7 +4,6 @@
 
 namespace args_config
 {
-
 	const std::string PROGRAM_NAME = "Valeria";
 	const std::string PROGRAM_DESC = "Compiler for Valeria Programming Language";
 

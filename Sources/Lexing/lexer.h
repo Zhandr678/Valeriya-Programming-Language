@@ -1,20 +1,29 @@
 #pragma once
 
-#include "lexing2023/includes.h"
+#include <vector>
+#include <string>
+#include <optional>
 
-#include "token.h"
+#include "lexing2023/filereader.h"
+#include "Lexing/token.h"
 
 class Lexer
 {
 private:
 	lexing::filereader inp;
-	lexing::classifier <char, TokenLabel> cls;
+	size_t token_size, view_capacity;
 
-	void BuildClassifier();
+	bool Has(size_t next);
+	void Commit(size_t next);
+
+	std::optional <Token> AnalyzeNumbers();
+	std::optional <Token> AnalyzeLiterals();
+	std::optional <Token> AnalyzeKeywords();
+	std::optional <Token> AnalyzeSymbolsAndOperators();
+	std::optional <Token> AnalyzeComments();
+
 public:
-	Lexer() = delete;
+	explicit Lexer(lexing::filereader&& input);
 
-	Lexer(lexing::filereader&& inp);
-
-	Token NextToken();
+	Token ReadAndClassifyNext();
 };

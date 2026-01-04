@@ -4,6 +4,7 @@
 #include <variant>
 #include <fstream>
 #include <algorithm>
+#include <format>
 
 #include "Lexing/lexer.h"
 
@@ -35,9 +36,18 @@ int main(int argc, char* argv[])
 	lexing::filereader freader(&in, val_source_path.filename().string());
 
 	Lexer lexer(std::move(freader));
-	std::cout << lexer.NextToken().attr;
+
+	auto t = lexer.ReadAndClassifyNext();
+
+	while (t.label != TokenLabel::_EOF_)
+	{
+		std::cout << std::format("[\n\tLabel: {},\n\tValue: {},\n\tLocation: {} {}\n]\n", t.label, t.attr, t.loc.line, t.loc.at );
+		t = lexer.ReadAndClassifyNext();
+	}
 
 #pragma endregion
+
+
 
 	std::cout << "Compilation Finished\n";
 	return 0;
