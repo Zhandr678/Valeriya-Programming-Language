@@ -240,7 +240,7 @@ namespace val
 	}
 
 
-	std::optional<Token> Lexer::AnalyzeSymbolsAndOperators()
+	std::optional<Token> Lexer::AnalyzeSymbols()
 	{
 		if (not Has(1)) { return std::nullopt; }
 
@@ -249,14 +249,14 @@ namespace val
 		{
 			std::string_view v = inp.view(2);
 
-			if (v == "->") return Commit(2), Token{ TokenLabel::SYM_ARROW, "->", _CurLocation };
-			if (v == "==") return Commit(2), Token{ TokenLabel::OP_EQUAL,  "==", _CurLocation };
-			if (v == "!=") return Commit(2), Token{ TokenLabel::OP_NEQ,    "!=", _CurLocation };
-			if (v == "<=") return Commit(2), Token{ TokenLabel::OP_LEQ,    "<=", _CurLocation };
-			if (v == ">=") return Commit(2), Token{ TokenLabel::OP_GEQ,    ">=", _CurLocation };
-			if (v == "&&") return Commit(2), Token{ TokenLabel::OP_LAND,   "&&", _CurLocation };
-			if (v == "||") return Commit(2), Token{ TokenLabel::OP_LOR,    "||", _CurLocation };
-			if (v == "**") return Commit(2), Token{ TokenLabel::OP_POW,    "**", _CurLocation };
+			if (v == "->") return Commit(2), Token{ TokenLabel::SYM_ARROW,  "->", _CurLocation };
+			if (v == "==") return Commit(2), Token{ TokenLabel::SYM_EQUAL,  "==", _CurLocation };
+			if (v == "!=") return Commit(2), Token{ TokenLabel::SYM_NEQ,    "!=", _CurLocation };
+			if (v == "<=") return Commit(2), Token{ TokenLabel::SYM_LEQ,    "<=", _CurLocation };
+			if (v == ">=") return Commit(2), Token{ TokenLabel::SYM_GEQ,    ">=", _CurLocation };
+			if (v == "&&") return Commit(2), Token{ TokenLabel::SYM_LAND,   "&&", _CurLocation };
+			if (v == "||") return Commit(2), Token{ TokenLabel::SYM_LOR,    "||", _CurLocation };
+			if (v == "**") return Commit(2), Token{ TokenLabel::SYM_POW,    "**", _CurLocation };
 		}
 
 		// Single-character operators
@@ -265,28 +265,28 @@ namespace val
 
 		switch (c)
 		{
-		case '{': label = TokenLabel::SYM_LBRACE;    break;
-		case '}': label = TokenLabel::SYM_RBRACE;    break;
-		case '(': label = TokenLabel::SYM_LPAR;      break;
-		case ')': label = TokenLabel::SYM_RPAR;      break;
-		case '[': label = TokenLabel::SYM_LBRACKET;  break;
-		case ']': label = TokenLabel::SYM_RBRACKET;  break;
-		case ';': label = TokenLabel::SYM_SEMICOLON; break;
-		case ':': label = TokenLabel::SYM_COLON;     break;
-		case ',': label = TokenLabel::SYM_COMMA;     break;
-		case '.': label = TokenLabel::SYM_DOT;       break;
-		case '+': label = TokenLabel::OP_PLUS;       break;
-		case '-': label = TokenLabel::OP_MINUS;      break;
-		case '*': label = TokenLabel::OP_TIMES;      break;
-		case '/': label = TokenLabel::OP_DIV;        break;
-		case '%': label = TokenLabel::OP_MOD;        break;
-		case '^': label = TokenLabel::OP_XOR;        break;
-		case '&': label = TokenLabel::OP_AND;        break;
-		case '|': label = TokenLabel::OP_OR;         break;
-		case '!': label = TokenLabel::OP_NOT;        break;
-		case '=': label = TokenLabel::OP_ASSIGN;     break;
-		case '<': label = TokenLabel::OP_LESS;       break;
-		case '>': label = TokenLabel::OP_GREATER;    break;
+		case '{': label = TokenLabel::SYM_LBRACE;     break;
+		case '}': label = TokenLabel::SYM_RBRACE;     break;
+		case '(': label = TokenLabel::SYM_LPAR;       break;
+		case ')': label = TokenLabel::SYM_RPAR;       break;
+		case '[': label = TokenLabel::SYM_LBRACKET;   break;
+		case ']': label = TokenLabel::SYM_RBRACKET;   break;
+		case ';': label = TokenLabel::SYM_SEMICOLON;  break;
+		case ':': label = TokenLabel::SYM_COLON;      break;
+		case ',': label = TokenLabel::SYM_COMMA;      break;
+		case '.': label = TokenLabel::SYM_DOT;        break;
+		case '+': label = TokenLabel::SYM_PLUS;       break;
+		case '-': label = TokenLabel::SYM_MINUS;      break;
+		case '*': label = TokenLabel::SYM_TIMES;      break;
+		case '/': label = TokenLabel::SYM_DIV;        break;
+		case '%': label = TokenLabel::SYM_MOD;        break;
+		case '^': label = TokenLabel::SYM_XOR;        break;
+		case '&': label = TokenLabel::SYM_AND;        break;
+		case '|': label = TokenLabel::SYM_OR;         break;
+		case '!': label = TokenLabel::SYM_NOT;        break;
+		case '=': label = TokenLabel::SYM_ASSIGN;     break;
+		case '<': label = TokenLabel::SYM_LESS;       break;
+		case '>': label = TokenLabel::SYM_GREATER;    break;
 		default:
 			return std::nullopt;
 		}
@@ -354,11 +354,11 @@ namespace val
 
 		if (not Has(1)) { return Token{ TokenLabel::_EOF_, "", _CurLocation }; }
 
-		if (auto t = AnalyzeComments())            return *t;
-		if (auto t = AnalyzeKeywords())            return *t;
-		if (auto t = AnalyzeNumbers())             return *t;
-		if (auto t = AnalyzeLiterals())            return *t;
-		if (auto t = AnalyzeSymbolsAndOperators()) return *t;
+		if (auto t = AnalyzeComments()) return *t;
+		if (auto t = AnalyzeKeywords()) return *t;
+		if (auto t = AnalyzeNumbers())  return *t;
+		if (auto t = AnalyzeLiterals()) return *t;
+		if (auto t = AnalyzeSymbols())  return *t;
 
 		// Unknown character
 		throw LexerException("Unknown Character", _CurLocation);

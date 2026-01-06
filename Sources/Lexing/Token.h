@@ -29,10 +29,10 @@ namespace val
         SYM_LBRACE, SYM_RBRACE, SYM_LBRACKET, SYM_RBRACKET, SYM_LPAR, SYM_RPAR,
         SYM_COLON, SYM_SEMICOLON, SYM_COMMA, SYM_DOT, SYM_ARROW,
 
-        OP_PLUS, OP_MINUS, OP_TIMES, OP_DIV, OP_MOD, OP_POW,
-        OP_AND, OP_OR, OP_LOR, OP_LAND, OP_XOR, OP_NOT,
+        SYM_PLUS, SYM_MINUS, SYM_TIMES, SYM_DIV, SYM_MOD, SYM_POW,
+        SYM_AND, SYM_OR, SYM_LOR, SYM_LAND, SYM_XOR, SYM_NOT,
 
-        OP_ASSIGN, OP_EQUAL, OP_NEQ, OP_LESS, OP_GREATER, OP_LEQ, OP_GEQ,
+        SYM_ASSIGN, SYM_EQUAL, SYM_NEQ, SYM_LESS, SYM_GREATER, SYM_LEQ, SYM_GEQ,
 
         COM_LINE, COM_BLOCK,
 
@@ -89,25 +89,25 @@ namespace std {
         case val::TokenLabel::SYM_COMMA:     return out << "SYM_COMMA";
         case val::TokenLabel::SYM_DOT:       return out << "SYM_DOT";
         case val::TokenLabel::SYM_ARROW:     return out << "SYM_ARROW";
-        case val::TokenLabel::OP_PLUS:       return out << "OP_PLUS";
-        case val::TokenLabel::OP_MINUS:      return out << "OP_MINUS";
-        case val::TokenLabel::OP_TIMES:      return out << "OP_TIMES";
-        case val::TokenLabel::OP_DIV:        return out << "OP_DIV";
-        case val::TokenLabel::OP_MOD:        return out << "OP_MOD";
-        case val::TokenLabel::OP_POW:        return out << "OP_POW";
-        case val::TokenLabel::OP_AND:        return out << "OP_AND";
-        case val::TokenLabel::OP_OR:         return out << "OP_OR";
-        case val::TokenLabel::OP_XOR:        return out << "OP_XOR";
-        case val::TokenLabel::OP_NOT:        return out << "OP_NOT";
-        case val::TokenLabel::OP_ASSIGN:     return out << "OP_ASSIGN";
-        case val::TokenLabel::OP_EQUAL:      return out << "OP_EQUAL";
-        case val::TokenLabel::OP_NEQ:        return out << "OP_NEQ";
-        case val::TokenLabel::OP_LESS:       return out << "OP_LESS";
-        case val::TokenLabel::OP_GREATER:    return out << "OP_GREATER";
-        case val::TokenLabel::OP_LEQ:        return out << "OP_LEQ";
-        case val::TokenLabel::OP_GEQ:        return out << "OP_GEQ";
-        case val::TokenLabel::OP_LOR:        return out << "OP_LOR";
-        case val::TokenLabel::OP_LAND:       return out << "OP_LAND";
+        case val::TokenLabel::SYM_PLUS:       return out << "SYM_PLUS";
+        case val::TokenLabel::SYM_MINUS:      return out << "SYM_MINUS";
+        case val::TokenLabel::SYM_TIMES:      return out << "SYM_TIMES";
+        case val::TokenLabel::SYM_DIV:        return out << "SYM_DIV";
+        case val::TokenLabel::SYM_MOD:        return out << "SYM_MOD";
+        case val::TokenLabel::SYM_POW:        return out << "SYM_POW";
+        case val::TokenLabel::SYM_AND:        return out << "SYM_AND";
+        case val::TokenLabel::SYM_OR:         return out << "SYM_OR";
+        case val::TokenLabel::SYM_XOR:        return out << "SYM_XOR";
+        case val::TokenLabel::SYM_NOT:        return out << "SYM_NOT";
+        case val::TokenLabel::SYM_ASSIGN:     return out << "SYM_ASSIGN";
+        case val::TokenLabel::SYM_EQUAL:      return out << "SYM_EQUAL";
+        case val::TokenLabel::SYM_NEQ:        return out << "SYM_NEQ";
+        case val::TokenLabel::SYM_LESS:       return out << "SYM_LESS";
+        case val::TokenLabel::SYM_GREATER:    return out << "SYM_GREATER";
+        case val::TokenLabel::SYM_LEQ:        return out << "SYM_LEQ";
+        case val::TokenLabel::SYM_GEQ:        return out << "SYM_GEQ";
+        case val::TokenLabel::SYM_LOR:        return out << "SYM_LOR";
+        case val::TokenLabel::SYM_LAND:       return out << "SYM_LAND";
         case val::TokenLabel::COM_LINE:      return out << "COM_LINE";
         case val::TokenLabel::COM_BLOCK:     return out << "COM_BLOCK";
         case val::TokenLabel::_EOF_:         return out << "_EOF_";

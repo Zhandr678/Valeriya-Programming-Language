@@ -4,15 +4,15 @@ mylang.ext:
 
 property RotateBy
 {
-	Angle: { double angle; },
-	Radian: { double rads; }, 
+	Angle: { double angle; }
+	Radian: { double rads; }
 	Quaternion: { double a, b, c, d; }
 }
 
 property Command
 {
-	Rotate: { RotateBy r; },
-	Move: { double dx, dy; },
+	Rotate: { RotateBy r; }
+	Move: { double dx, dy; }
 	Stop: {}
 }
 

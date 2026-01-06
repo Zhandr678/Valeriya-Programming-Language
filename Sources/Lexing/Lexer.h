@@ -1,7 +1,5 @@
 #pragma once
 
-#include <vector>
-#include <string>
 #include <optional>
 
 #include "lexing2023/filereader.h"
@@ -22,7 +20,7 @@ namespace val
 		std::optional <Token> AnalyzeNumbers();
 		std::optional <Token> AnalyzeLiterals();
 		std::optional <Token> AnalyzeKeywords();
-		std::optional <Token> AnalyzeSymbolsAndOperators();
+		std::optional <Token> AnalyzeSymbols();
 		std::optional <Token> AnalyzeComments();
 
 	public:
