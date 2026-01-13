@@ -30,10 +30,12 @@ const char* val::getcstring( selector sel )
       return "UnaryExpr";
    case VarNameExpr :
       return "VarNameExpr";
-   case BlockOfStmt :
-      return "BlockOfStmt";
    case BreakStmt :
       return "BreakStmt";
+   case AssignmentStmt :
+      return "AssignmentStmt";
+   case BlockOfStmt :
+      return "BlockOfStmt";
    case ElifConditionStmt :
       return "ElifConditionStmt";
    case ContinueStmt :

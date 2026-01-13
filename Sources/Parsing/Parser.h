@@ -12,15 +12,13 @@ namespace val
 	{
 	private:
 		Lexer lexer;
-		bool eof = false;
 
 		std::vector <Token> peeked;
-		size_t next;
-
-		std::queue <Statement> pending;
+		size_t next = 0;
 
 		Token GetNextImportantToken();
 		Token GetNextPeeked();
+		void ResetLookAhead();
 
 		std::optional <Statement> AnalyzeInitalizationStatement();
 		std::optional <Statement> AnalyzeAssignmentStatement();
@@ -44,7 +42,7 @@ namespace val
 		Parser(Parser&& parser) noexcept;
 		Parser& operator=(Parser&& parser) noexcept;
 
-		Statement GetNextStatement();
+		Statement ConstructAST(TokenLabel flag);
 
 		std::string GetFileName() const;
 		size_t GetLine() const;

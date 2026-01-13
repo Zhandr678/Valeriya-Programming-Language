@@ -2,6 +2,18 @@
 
 #include "ParserException.h"
 
+#pragma region("Helpers")
+
+
+static bool CanBeTypeName(val::TokenLabel lbl)
+{
+	return lbl == val::TokenLabel::KW_INT || lbl == val::TokenLabel::KW_BOOL || lbl == val::TokenLabel::KW_STRING ||
+		lbl == val::TokenLabel::KW_CHAR || lbl == val::TokenLabel::KW_DOUBLE || lbl == val::TokenLabel::IDENTIFIER;
+}
+
+
+#pragma endregion
+
 namespace val 
 {
 
@@ -21,36 +33,46 @@ namespace val
 		return *this;
 	}
 
-	Statement Parser::GetNextStatement()
+	Statement Parser::ConstructAST(TokenLabel flag = TokenLabel::_EOF_)
 	{
-		if (not pending.empty())
+		std::vector <Statement> stms;
+
+		Token next_token = GetNextPeeked();
+		while (next_token.label != flag)
 		{
-			Statement next_st = std::move(pending.front());
-			pending.pop();
-			return next_st;
+			if (auto st = AnalyzeExpressionStatement()) { 
+				stms.push_back(*st); 
+			}
+			else if (auto st = AnalyzeInitalizationStatement()) {
+				stms.push_back(*st);
+			}
+			else if (auto st = AnalyzeConditionStatement()) {
+				stms.push_back(*st);
+			}
+			else if (auto st = AnalyzeForLoopStatement()) {
+				stms.push_back(*st);
+			}
+			else if (auto st = AnalyzeWhileLoopStatement()) {
+				stms.push_back(*st);
+			}
+			else if (auto st = AnalyzeMakeEnumStatement()) {
+				stms.push_back(*st);
+			}
+			else if (auto st = AnalyzeMakeFunctionStatement()) {
+				stms.push_back(*st);
+			}
+			else if (auto st = AnalyzeMakeStructStatement()) {
+				stms.push_back(*st);
+			}
+			else if (auto st = AnalyzeMatchStatement()) {
+				stms.push_back(*st);
+			}
+			else {
+				throw ParserException("Unknown Statement", GetFileName(), EmptyExpr, GetLine());
+			}
 		}
 
-		if (eof) { return Statement(EmptyStmt); }
-
-		if (GetNextPeeked().label == TokenLabel::_EOF_)
-		{
-			eof = true;
-			return Statement(EmptyStmt);
-		}
-
-		next = 0;
-
-		if (auto st = AnalyzeExpressionStatement())    return *st;
-		if (auto st = AnalyzeInitalizationStatement()) return *st;
-		if (auto st = AnalyzeConditionStatement())     return *st;
-		if (auto st = AnalyzeForLoopStatement())       return *st;
-		if (auto st = AnalyzeWhileLoopStatement())     return *st;
-		if (auto st = AnalyzeMakeEnumStatement())      return *st;
-		if (auto st = AnalyzeMakeFunctionStatement())  return *st;
-		if (auto st = AnalyzeMakeStructStatement())    return *st;
-		if (auto st = AnalyzeMatchStatement())         return *st; 
-
-		throw ParserException("Unknown Statement", GetFileName(), EmptyExpr, GetLine());
+		return Statement(BlockOfStmt, stms.begin(), stms.end());
 	}
 
 	std::string Parser::GetFileName() const
@@ -90,12 +112,18 @@ namespace val
 		return peeked[next++];
 	}
 
+	void Parser::ResetLookAhead()
+	{
+		peeked.clear();
+		next = 0;
+	}
+
 	std::optional<Statement> Parser::AnalyzeInitalizationStatement()
 	{
 		Token type_token = GetNextPeeked();
+		std::vector <Statement> var_inits;
 
-		if (type_token.label != TokenLabel::KW_INT || type_token.label != TokenLabel::KW_DOUBLE || type_token.label != TokenLabel::KW_CHAR ||
-			type_token.label != TokenLabel::KW_STRING || type_token.label != TokenLabel::KW_BOOL || type_token.label != TokenLabel::IDENTIFIER)
+		if (CanBeTypeName(type_token.label))
 		{
 			next = 0;
 			return std::nullopt;
@@ -115,33 +143,33 @@ namespace val
 
 			if (next_token.label == TokenLabel::SYM_COMMA)
 			{
+				var_inits.push_back(Statement(VarInitStmt, Expression(EmptyExpr), varname_token.attr, type_token.attr));
 				next_token = GetNextPeeked();
-				pending.emplace(Statement(VarInitStmt, Expression(EmptyExpr), varname_token.attr, type_token.attr));
+				ResetLookAhead();
 				continue;
 			}
 
 			if (next_token.label == TokenLabel::SYM_EQUAL)
 			{
 				auto expr = AnalyzeExpressionStatement();
+
 				if (not expr.has_value()) 
 				{ 
 					throw; // no expression after equal symbol
 				}
-				pending.emplace(Statement(VarInitStmt, expr->view_ExprCall().expr(), varname_token.attr, type_token.attr));
+				
+				var_inits.push_back(Statement(VarInitStmt, expr->view_ExprCall().expr(), varname_token.attr, type_token.attr));
+				ResetLookAhead();
+				
 				next_token = GetNextPeeked();
-				if (next_token.label == TokenLabel::SYM_COMMA)
-				{ 
-					next_token = GetNextPeeked();
-					continue;
-				}
+				if (next_token.label == TokenLabel::SYM_SEMICOLON) { break; }
+				else if (next_token.label == TokenLabel::SYM_COMMA) { next_token = GetNextPeeked(); }
+				else { throw; }
 			}
 		}
 
-		next = 0;
-		peeked.clear();
-		Statement next_st = std::move(pending.front());
-		pending.pop();
-		return next_st;
+		ResetLookAhead();
+		return Statement(BlockOfStmt, var_inits.begin(), var_inits.end());
 	}
 
 	std::optional<Statement> Parser::AnalyzeAssignmentStatement()
@@ -179,13 +207,13 @@ namespace val
 			throw; // no { after if (expr)
 		}
 
-		Statement if_then = GetNextStatement();
+		// Statement if_then = ConstructNextStatement();
 
 		if (GetNextPeeked().label != TokenLabel::SYM_RBRACE)
 		{
 			throw; // no } after if (expr) { stmts 
 		}
-		return if_then;
+		return std::optional<Statement>();
 	}
 
 	std::optional<Statement> Parser::AnalyzeForLoopStatement()
@@ -200,7 +228,102 @@ namespace val
 
 	std::optional<Statement> Parser::AnalyzeMakeFunctionStatement()
 	{
-		return std::optional<Statement>();
+		if (GetNextPeeked().label != TokenLabel::KW_FUNC)
+		{
+			next = 0;
+			return std::nullopt;
+		}
+
+		Token fn_name_token = GetNextPeeked();
+
+		if (fn_name_token.label != TokenLabel::IDENTIFIER)
+		{
+			throw; // Forbidden name for function
+		}
+
+		if (GetNextPeeked().label != TokenLabel::SYM_LPAR)
+		{
+			throw; // need ( after function name
+		}
+
+		Token next_token = GetNextPeeked();
+		std::vector <Statement> args;
+
+		while (next_token.label != TokenLabel::SYM_RPAR)
+		{
+			Statement arg(FnArgsStmt, Expression(EmptyExpr), "", false, "");
+
+			if (next_token.label == TokenLabel::KW_INOUT)
+			{
+				arg.view_FnArgs().update_is_inout(true);
+				next_token = GetNextPeeked();
+			}
+
+			if (not CanBeTypeName(next_token.label))
+			{
+				throw; // Not a Type name in function's param list
+			}
+
+			arg.view_FnArgs().update_type_name(std::move(next_token.attr));
+
+			next_token = GetNextPeeked();
+
+			if (next_token.label != TokenLabel::IDENTIFIER)
+			{
+				throw; // Expected name after type
+			}
+
+			arg.view_FnArgs().update_var_name(std::move(next_token.attr));
+
+			if (GetNextPeeked().label == TokenLabel::SYM_EQUAL)
+			{
+				auto expr = AnalyzeExpressionStatement();
+				if (not expr.has_value())
+				{
+					throw; // expected expression after =
+				}
+
+				arg.view_FnArgs().update_default_expr(expr->view_ExprCall().expr());
+			}
+
+			args.push_back(std::move(arg));
+
+			next_token = GetNextPeeked();
+			if (next_token.label == TokenLabel::SYM_COMMA) { continue; }
+			else if (next_token.label == TokenLabel::SYM_RPAR) { break; }
+			else {
+				throw; // expected next arg or ), not next_token.label
+			}
+		}
+
+		peeked.clear();
+		next = 0;
+
+		if (GetNextPeeked().label != TokenLabel::SYM_ARROW)
+		{
+			throw; // expected -> return_type
+		}
+
+		Token ret_type_token = GetNextPeeked();
+
+		if (not CanBeTypeName(ret_type_token.label))
+		{
+			throw; // expected valid return_type
+		}
+
+		if (GetNextPeeked().label != TokenLabel::SYM_LBRACE)
+		{
+			throw; // expected {
+		}
+
+		Statement fn_body = ConstructAST();
+
+		if (GetNextPeeked().label != TokenLabel::SYM_RBRACE)
+		{
+			throw; // expected }
+		}
+
+		return Statement(MakeFunctionStmt, fn_body, args.begin(), args.end(), fn_name_token.attr, ret_type_token.attr);
 	}
 
 	std::optional<Statement> Parser::AnalyzeMakeStructStatement()

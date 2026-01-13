@@ -50,6 +50,10 @@
 %option ExprCall { ExprCallStmt } =>
     expr : Expression
 
+%option Assignment { AssignmentStmt } =>
+    expr : Expression,
+    # var_name : std::string
+
 %option VarInit { VarInitStmt } =>
     init_expr : Expression, 
     # var_name : std::string, type_name : std::string

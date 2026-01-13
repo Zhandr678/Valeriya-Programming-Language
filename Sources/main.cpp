@@ -40,15 +40,6 @@ int main(int argc, char* argv[])
 		)
 	);
 
-	val::Expression expr(val::IntLiteralExpr, 67);
-	val::Expression expr2(val::IntLiteralExpr, 68);
-	val::Statement x(val::VarInitStmt, expr, "x", "int");
-	val::Statement y(val::VarInitStmt, expr2, "y", "int");
-	val::Statement struct_point(val::MakeStructStmt, { x, y }, "point");
-
-	std::cout << struct_point.view_MakeStruct().size();
-
-	std::cout << "Compilation Finished\n";
 	return 0;
 }
 
