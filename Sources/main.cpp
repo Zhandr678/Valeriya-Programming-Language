@@ -34,12 +34,22 @@ int main(int argc, char* argv[])
 	std::filesystem::path val_source_path = result["file"].as<std::string>();
 	std::ifstream in(val_source_path);
 
-	val::Parser parser(
-		val::Lexer(
-			lexing::filereader(&in, val_source_path.filename().string())
-		)
-	);
+	try {
+		val::Parser parser(
+			val::Lexer(
+				lexing::filereader(&in, val_source_path.filename().string())
+			)
+		);
 
+		auto AST = parser.ConstructAST();
+
+		// std::cout << AST.view_Block().statements(0).view_Block().size();
+
+	}
+	catch (const std::logic_error& e)
+	{
+		std::cout << e.what();
+	}
 	return 0;
 }
 

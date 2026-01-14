@@ -8,7 +8,7 @@
 namespace val 
 {
 
-	class ParserException : std::logic_error
+	class ParserException : public std::logic_error
 	{
 	public:
 		explicit ParserException(const std::string& msg, const std::string& filename, selector sel, size_t line);

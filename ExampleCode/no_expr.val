@@ -1,0 +1,7 @@
+double i;
+
+property prop
+{
+	opt: { int a; };
+	opt2: { double b; int c; };
+}

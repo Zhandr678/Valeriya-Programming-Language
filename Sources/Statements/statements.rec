@@ -114,7 +114,7 @@
 %option Continue { ContinueStmt } =>
 
 %option CaseClause { CaseClauseStmt } =>
-    [ case_body : Statement ],
+    case_body : Statement,
     # opt_name : std::string
 
 %option Match { MatchStmt } => 

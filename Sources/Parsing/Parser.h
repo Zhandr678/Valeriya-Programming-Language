@@ -30,7 +30,7 @@ namespace val
 		std::optional <Statement> AnalyzeMakePropertyStatement();
 		std::optional <Statement> AnalyzeMakeEnumStatement();
 		std::optional <Statement> AnalyzeMatchStatement();
-		std::optional <Statement> AnalyzeExpressionStatement();
+		std::optional <Statement> AnalyzeExpressionStatement(TokenLabel flag = TokenLabel::SYM_SEMICOLON);
 
 	public:
 		explicit Parser(Lexer&& lexer);
@@ -42,7 +42,7 @@ namespace val
 		Parser(Parser&& parser) noexcept;
 		Parser& operator=(Parser&& parser) noexcept;
 
-		Statement ConstructAST(TokenLabel flag);
+		Statement ConstructAST(TokenLabel flag = TokenLabel::_EOF_);
 
 		std::string GetFileName() const;
 		size_t GetLine() const;

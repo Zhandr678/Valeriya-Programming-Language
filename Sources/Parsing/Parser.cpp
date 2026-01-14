@@ -33,13 +33,14 @@ namespace val
 		return *this;
 	}
 
-	Statement Parser::ConstructAST(TokenLabel flag = TokenLabel::_EOF_)
+	Statement Parser::ConstructAST(TokenLabel flag)
 	{
 		std::vector <Statement> stms;
 
 		Token next_token = GetNextPeeked();
 		while (next_token.label != flag)
 		{
+			next = 0;
 			if (auto st = AnalyzeExpressionStatement()) { 
 				stms.push_back(*st); 
 			}
@@ -64,12 +65,16 @@ namespace val
 			else if (auto st = AnalyzeMakeStructStatement()) {
 				stms.push_back(*st);
 			}
+			else if (auto st = AnalyzeMakePropertyStatement()) {
+				stms.push_back(*st);
+			}
 			else if (auto st = AnalyzeMatchStatement()) {
 				stms.push_back(*st);
 			}
 			else {
-				throw ParserException("Unknown Statement", GetFileName(), EmptyExpr, GetLine());
+				throw ParserException("Unknown Statement", GetFileName(), EmptyStmt, GetLine());
 			}
+			next_token = GetNextPeeked();
 		}
 
 		return Statement(BlockOfStmt, stms.begin(), stms.end());
@@ -94,7 +99,7 @@ namespace val
 	{
 		Token next = lexer.ReadAndClassifyNext();
 
-		while (next.label == TokenLabel::COM_BLOCK || next.label == TokenLabel::COM_LINE || next.label == TokenLabel::SYM_SEMICOLON)
+		while (next.label == TokenLabel::COM_BLOCK || next.label == TokenLabel::COM_LINE)
 		{
 			next = lexer.ReadAndClassifyNext();
 		}
@@ -121,14 +126,15 @@ namespace val
 	std::optional<Statement> Parser::AnalyzeInitalizationStatement()
 	{
 		Token type_token = GetNextPeeked();
-		std::vector <Statement> var_inits;
 
-		if (CanBeTypeName(type_token.label))
+		if (not CanBeTypeName(type_token.label))
 		{
 			next = 0;
 			return std::nullopt;
 		}
-
+		
+		std::vector <Statement> var_inits;
+		
 		Token next_token = GetNextPeeked();
 		while (next_token.label != TokenLabel::SYM_SEMICOLON)
 		{
@@ -136,7 +142,7 @@ namespace val
 
 			if (varname_token.label != TokenLabel::IDENTIFIER)
 			{
-				throw; // initialization of variable with forbidden name;
+				throw ParserException("Bad Name for a Variable", GetFileName(), VarInitStmt, GetLine()); // initialization of variable with forbidden name;
 			}
 
 			next_token = GetNextPeeked();
@@ -149,13 +155,20 @@ namespace val
 				continue;
 			}
 
-			if (next_token.label == TokenLabel::SYM_EQUAL)
+			if (next_token.label == TokenLabel::SYM_SEMICOLON)
+			{
+				var_inits.push_back(Statement(VarInitStmt, Expression(EmptyExpr), varname_token.attr, type_token.attr));
+				ResetLookAhead();
+				break;
+			}
+
+			else if (next_token.label == TokenLabel::SYM_EQUAL)
 			{
 				auto expr = AnalyzeExpressionStatement();
 
 				if (not expr.has_value()) 
 				{ 
-					throw; // no expression after equal symbol
+					throw ParserException("Expected Expression", GetFileName(), VarInitStmt, GetLine()); // no expression after equal symbol
 				}
 				
 				var_inits.push_back(Statement(VarInitStmt, expr->view_ExprCall().expr(), varname_token.attr, type_token.attr));
@@ -164,8 +177,9 @@ namespace val
 				next_token = GetNextPeeked();
 				if (next_token.label == TokenLabel::SYM_SEMICOLON) { break; }
 				else if (next_token.label == TokenLabel::SYM_COMMA) { next_token = GetNextPeeked(); }
-				else { throw; }
+				else { throw ParserException("Expected Semicolon", GetFileName(), VarInitStmt, GetLine()); }
 			}
+			else { throw ParserException("Expected Semicolon", GetFileName(), VarInitStmt, GetLine()); }
 		}
 
 		ResetLookAhead();
@@ -174,7 +188,34 @@ namespace val
 
 	std::optional<Statement> Parser::AnalyzeAssignmentStatement()
 	{
-		return std::optional<Statement>();
+		Token varname_token = GetNextPeeked();
+
+		if (varname_token.label != TokenLabel::IDENTIFIER)
+		{
+			next = 0;
+			return std::nullopt;
+		}
+
+		if (GetNextPeeked().label != TokenLabel::SYM_EQUAL)
+		{
+			next = 0;
+			return std::nullopt;
+		}
+
+		auto expr = AnalyzeExpressionStatement();
+
+		if (not expr.has_value())
+		{
+			throw ParserException("Expected Expression", GetFileName(), AssignmentStmt, GetLine()); // no expression after equal symbol
+		}
+
+		if (GetNextPeeked().label != TokenLabel::SYM_SEMICOLON)
+		{
+			throw ParserException("Expected Semicolon", GetFileName(), AssignmentStmt, GetLine()); // need semicolon
+		}
+
+		ResetLookAhead();
+		return Statement(AssignmentStmt, expr->view_ExprCall().expr(), varname_token.attr);
 	}
 
 	std::optional<Statement> Parser::AnalyzeConditionStatement()
@@ -185,45 +226,140 @@ namespace val
 			return std::nullopt;
 		}
 
+		
+
 		if (GetNextPeeked().label != TokenLabel::SYM_LPAR)
 		{
-			throw; // no ( after if
+			throw ParserException("Expected '(' after 'if'", GetFileName(), ConditionStmt, GetLine()); // no ( after if
 		}
 
 		auto expr = AnalyzeExpressionStatement();
 		
 		if (not expr.has_value())
 		{
-			throw; // no expression inside if
+			throw ParserException("Expected Expression", GetFileName(), ConditionStmt, GetLine()); // no expression inside if
 		}
 
 		if (GetNextPeeked().label != TokenLabel::SYM_RPAR)
 		{
-			throw; // no ) after if (expr
+			throw ParserException("Expected ')' after 'if (expr'", GetFileName(), ConditionStmt, GetLine()); // no ) after if (expr
 		}
 
 		if (GetNextPeeked().label != TokenLabel::SYM_LBRACE)
 		{
-			throw; // no { after if (expr)
+			throw ParserException("Expected Body of 'if'", GetFileName(), ConditionStmt, GetLine()); // no { after if (expr)
 		}
 
-		// Statement if_then = ConstructNextStatement();
-
+		Statement if_body = ConstructAST(TokenLabel::SYM_RBRACE);
+		
 		if (GetNextPeeked().label != TokenLabel::SYM_RBRACE)
 		{
-			throw; // no } after if (expr) { stmts 
+			throw ParserException("Expected Closing '}'", GetFileName(), ConditionStmt, GetLine()); // no } after if (expr) { stmts 
 		}
-		return std::optional<Statement>();
+		
+		ResetLookAhead();
+		std::vector <Statement> elifs;
+		Token next_token = GetNextPeeked();
+		while (next_token.label == TokenLabel::KW_ELIF)
+		{
+			if (GetNextPeeked().label != TokenLabel::SYM_LPAR)
+			{
+				throw ParserException("Expected '(' after 'elif'", GetFileName(), ConditionStmt, GetLine()); // elif (!
+			}
+
+			auto elif_expr = AnalyzeExpressionStatement();
+
+			if (not elif_expr.has_value())
+			{
+				throw ParserException("Expected ')' after 'elif(expr'", GetFileName(), ConditionStmt, GetLine()); // no expression in elif()
+			}
+
+			if (GetNextPeeked().label != TokenLabel::SYM_LBRACE)
+			{
+				throw ParserException("Expected Body of 'elif'", GetFileName(), ConditionStmt, GetLine()); // elif (!
+			}
+
+			Statement elif_body = ConstructAST(TokenLabel::SYM_RBRACE);
+
+			if (GetNextPeeked().label != TokenLabel::SYM_RBRACE)
+			{
+				throw ParserException("Expected Closing '}'", GetFileName(), ConditionStmt, GetLine()); // elif () {}!
+			}
+
+			elifs.push_back(Statement(ElifConditionStmt, elif_expr->view_ExprCall().expr(), elif_body));
+			ResetLookAhead();
+		}
+
+		Statement else_body(EmptyStmt);
+		if (next_token.label == TokenLabel::KW_ELSE)
+		{
+			if (GetNextPeeked().label != TokenLabel::SYM_LBRACE)
+			{
+				throw ParserException("Expected Body of 'else'", GetFileName(), ConditionStmt, GetLine()); // else {!
+			}
+
+			else_body = ConstructAST(TokenLabel::SYM_RBRACE);
+
+			if (GetNextPeeked().label != TokenLabel::SYM_RBRACE)
+			{
+				throw ParserException("Expected Closing '}'", GetFileName(), ConditionStmt, GetLine()); // else {}!
+			}
+		}
+
+		ResetLookAhead();
+		return Statement(ConditionStmt, expr->view_ExprCall().expr(), if_body, else_body, elifs.begin(), elifs.end());
 	}
 
 	std::optional<Statement> Parser::AnalyzeForLoopStatement()
 	{
-		return std::optional<Statement>();
+		if (GetNextPeeked().label != TokenLabel::KW_FOR)
+		{
+			next = 0;
+			return std::nullopt;
+		}
+
+		return Statement(EmptyStmt);
 	}
 
 	std::optional<Statement> Parser::AnalyzeWhileLoopStatement()
 	{
-		return std::optional<Statement>();
+		if (GetNextPeeked().label != TokenLabel::KW_WHILE)
+		{
+			next = 0;
+			return std::nullopt;
+		}
+
+		if (GetNextPeeked().label != TokenLabel::SYM_LPAR)
+		{
+			throw ParserException("Expected '(' after 'while'", GetFileName(), WhileLoopStmt, GetLine()); // expected ( after while
+		}
+
+		auto expr = AnalyzeExpressionStatement();
+
+		if (not expr.has_value())
+		{
+			throw ParserException("Expected Expression", GetFileName(), WhileLoopStmt, GetLine()); // no expression in while
+		}
+
+		if (GetNextPeeked().label != TokenLabel::SYM_RPAR)
+		{
+			throw ParserException("Expected ')' after 'while(expr'", GetFileName(), WhileLoopStmt, GetLine()); // expected ) after while (expr
+		}
+
+		if (GetNextPeeked().label != TokenLabel::SYM_LBRACE)
+		{
+			throw ParserException("Expected Body of 'while'", GetFileName(), WhileLoopStmt, GetLine()); // expected { after while (expr)
+		}
+
+		Statement while_body = ConstructAST(TokenLabel::SYM_RBRACE);
+
+		if (GetNextPeeked().label != TokenLabel::SYM_RBRACE)
+		{
+			throw ParserException("Expected Closing '}'", GetFileName(), WhileLoopStmt, GetLine()); // expected } after while (expr) {
+		}
+
+		ResetLookAhead();
+		return Statement(WhileLoopStmt, expr->view_ExprCall().expr(), while_body);
 	}
 
 	std::optional<Statement> Parser::AnalyzeMakeFunctionStatement()
@@ -238,12 +374,12 @@ namespace val
 
 		if (fn_name_token.label != TokenLabel::IDENTIFIER)
 		{
-			throw; // Forbidden name for function
+			throw ParserException("Bad Name for a Function", GetFileName(), MakeFunctionStmt, GetLine()); // Forbidden name for function
 		}
 
 		if (GetNextPeeked().label != TokenLabel::SYM_LPAR)
 		{
-			throw; // need ( after function name
+			throw ParserException("Expected Param List for a Function", GetFileName(), MakeFunctionStmt, GetLine()); // need ( after function name
 		}
 
 		Token next_token = GetNextPeeked();
@@ -261,7 +397,7 @@ namespace val
 
 			if (not CanBeTypeName(next_token.label))
 			{
-				throw; // Not a Type name in function's param list
+				throw ParserException("Not a Type Name in a Function's Param List", GetFileName(), MakeFunctionStmt, GetLine()); // Not a Type name in function's param list
 			}
 
 			arg.view_FnArgs().update_type_name(std::move(next_token.attr));
@@ -270,7 +406,7 @@ namespace val
 
 			if (next_token.label != TokenLabel::IDENTIFIER)
 			{
-				throw; // Expected name after type
+				throw ParserException("Bad Name For a Function Param", GetFileName(), MakeFunctionStmt, GetLine()); // Expected name after type
 			}
 
 			arg.view_FnArgs().update_var_name(std::move(next_token.attr));
@@ -280,7 +416,7 @@ namespace val
 				auto expr = AnalyzeExpressionStatement();
 				if (not expr.has_value())
 				{
-					throw; // expected expression after =
+					throw ParserException("Expected Expression", GetFileName(), MakeFunctionStmt, GetLine()); // expected expression after =
 				}
 
 				arg.view_FnArgs().update_default_expr(expr->view_ExprCall().expr());
@@ -292,63 +428,286 @@ namespace val
 			if (next_token.label == TokenLabel::SYM_COMMA) { continue; }
 			else if (next_token.label == TokenLabel::SYM_RPAR) { break; }
 			else {
-				throw; // expected next arg or ), not next_token.label
+				throw ParserException("Expected Next Arg or ')'", GetFileName(), MakeFunctionStmt, GetLine()); // expected next arg or ), not next_token.label
 			}
 		}
 
-		peeked.clear();
-		next = 0;
+		ResetLookAhead();
 
 		if (GetNextPeeked().label != TokenLabel::SYM_ARROW)
 		{
-			throw; // expected -> return_type
+			throw ParserException("Expected '-> return_type'", GetFileName(), MakeFunctionStmt, GetLine()); // expected -> return_type
 		}
 
 		Token ret_type_token = GetNextPeeked();
 
 		if (not CanBeTypeName(ret_type_token.label))
 		{
-			throw; // expected valid return_type
+			throw ParserException("Not a Return Type Name", GetFileName(), MakeFunctionStmt, GetLine()); // expected valid return_type
 		}
 
 		if (GetNextPeeked().label != TokenLabel::SYM_LBRACE)
 		{
-			throw; // expected {
+			throw ParserException("Expected Body of 'fn'", GetFileName(), MakeFunctionStmt, GetLine()); // expected {
 		}
 
-		Statement fn_body = ConstructAST();
+		Statement fn_body = ConstructAST(TokenLabel::SYM_RBRACE);
 
 		if (GetNextPeeked().label != TokenLabel::SYM_RBRACE)
 		{
-			throw; // expected }
+			throw ParserException("Expected Closing '}'", GetFileName(), MakeFunctionStmt, GetLine()); // expected }
 		}
 
+		ResetLookAhead();
 		return Statement(MakeFunctionStmt, fn_body, args.begin(), args.end(), fn_name_token.attr, ret_type_token.attr);
 	}
 
 	std::optional<Statement> Parser::AnalyzeMakeStructStatement()
 	{
-		return std::optional<Statement>();
+		if (GetNextPeeked().label != TokenLabel::KW_STRUCT)
+		{
+			next = 0;
+			return std::nullopt;
+		}
+
+		Token struct_name_token = GetNextPeeked();
+
+		if (struct_name_token.label != TokenLabel::IDENTIFIER)
+		{
+			throw ParserException("Bad Name For a Struct", GetFileName(), MakeStructStmt, GetLine()); // forbidden struct name
+		}
+
+		if (GetNextPeeked().label != TokenLabel::SYM_LBRACE)
+		{
+			throw ParserException("Expected Body of 'struct'", GetFileName(), MakeStructStmt, GetLine()); // expected { after struct
+		}
+		
+		std::vector <Statement> var_inits;
+
+		while (GetNextPeeked().label != TokenLabel::SYM_RBRACE)
+		{
+			next--;
+			auto var_init_block = AnalyzeInitalizationStatement();
+
+			if (not var_init_block.has_value())
+			{
+				throw ParserException("Struct Fields Error", GetFileName(), MakeStructStmt, GetLine()); // no init statements
+			}
+
+			for (size_t i = 0; i < var_init_block->view_Block().size(); i++)
+			{
+				var_inits.push_back(var_init_block->view_Block().statements(i));
+			}
+		}
+		next--;
+		
+		if (GetNextPeeked().label != TokenLabel::SYM_RBRACE)
+		{
+			throw ParserException("Expected Closing '}' but got" + GetNextPeeked().attr, GetFileName(), MakeStructStmt, GetLine()); // expected } after struct {
+		}
+
+		ResetLookAhead();
+		return Statement(MakeStructStmt, var_inits.begin(), var_inits.end(), struct_name_token.attr);
 	}
 
 	std::optional<Statement> Parser::AnalyzeMakePropertyStatement()
 	{
-		return std::optional<Statement>();
+		if (GetNextPeeked().label != TokenLabel::KW_PROP)
+		{
+			next = 0;
+			return std::nullopt;
+		}
+
+		Token prop_name_token = GetNextPeeked();
+
+		if (prop_name_token.label != TokenLabel::IDENTIFIER)
+		{
+			throw ParserException("Bad Name For a Property", GetFileName(), MakePropertyStmt, GetLine()); // forbidden name for property
+		}
+
+		if (GetNextPeeked().label != TokenLabel::SYM_LBRACE)
+		{
+			throw ParserException("Expected Body of a Property", GetFileName(), MakePropertyStmt, GetLine()); // expected { after property
+		}
+
+		ResetLookAhead();
+		std::vector <Statement> prop_opts;
+
+		Token next_token = GetNextPeeked();
+		while (next_token.label != TokenLabel::SYM_RBRACE)
+		{
+			if (next_token.label != TokenLabel::IDENTIFIER)
+			{
+				throw ParserException("Bad Name For a Option", GetFileName(), MakePropertyStmt, GetLine()); // not option name
+			}
+
+			if (GetNextPeeked().label != TokenLabel::SYM_COLON)
+			{
+				throw ParserException("Expected ':' after Option Name", GetFileName(), MakePropertyStmt, GetLine()); // option :!
+			}
+
+			if (GetNextPeeked().label != TokenLabel::SYM_LBRACE)
+			{
+				throw ParserException("Expected Body of an Option", GetFileName(), MakePropertyStmt, GetLine()); // option : {!
+			}
+
+			std::vector <Statement> opt_inits;
+
+			while (GetNextPeeked().label != TokenLabel::SYM_RBRACE)
+			{
+				next--;
+				auto opt_init_block = AnalyzeInitalizationStatement();
+
+				if (not opt_init_block.has_value())
+				{
+					throw ParserException("Option Fields Error", GetFileName(), MakeStructStmt, GetLine()); // no init statements
+				}
+
+				for (size_t i = 0; i < opt_init_block->view_Block().size(); i++)
+				{
+					opt_inits.push_back(opt_init_block->view_Block().statements(i));
+				}
+			}
+			next--;
+
+			if (GetNextPeeked().label != TokenLabel::SYM_RBRACE)
+			{
+				throw ParserException("Expected Closing '}' but got", GetFileName(), MakePropertyStmt, GetLine()); // option : { ... }!
+			}
+
+			if (GetNextPeeked().label != TokenLabel::SYM_SEMICOLON)
+			{
+				throw ParserException("Expected ';'", GetFileName(), MakePropertyStmt, GetLine()); // option : { ... };!
+			}
+
+			prop_opts.push_back(Statement(MakeStructStmt, opt_inits.begin(), opt_inits.end(), next_token.attr));
+			next_token = GetNextPeeked();
+		}
+
+		ResetLookAhead();
+		return Statement(MakePropertyStmt, prop_opts.begin(), prop_opts.end(), prop_name_token.attr);
 	}
 
 	std::optional<Statement> Parser::AnalyzeMakeEnumStatement()
 	{
-		return std::optional<Statement>();
+		if (GetNextPeeked().label != TokenLabel::KW_ENUM)
+		{
+			next = 0;
+			return std::nullopt;
+		}
+
+		Token enum_name_token = GetNextPeeked();
+
+		if (enum_name_token.label != TokenLabel::IDENTIFIER)
+		{
+			throw; // forbidden name for enum
+		}
+
+		if (enum_name_token.label != TokenLabel::SYM_LBRACE)
+		{
+			throw; // enum {!
+		}
+
+		ResetLookAhead();
+		std::vector <std::string> enum_options;
+
+		Token next_token = GetNextPeeked();
+		while (next_token.label != TokenLabel::SYM_RBRACE)
+		{
+			if (next_token.label != TokenLabel::IDENTIFIER)
+			{
+				throw; // not enum option name
+			}
+
+			enum_options.push_back(next_token.attr);
+
+			next_token = GetNextPeeked();
+			if (next_token.label == TokenLabel::SYM_COMMA) { continue; }
+			else if (next_token.label == TokenLabel::SYM_RPAR) { break; }
+			else {
+				throw; // expected next arg or }, not next_token.label
+			}
+		}
+
+		ResetLookAhead();
+		return Statement(MakeEnumStmt, enum_options.begin(), enum_options.end(), enum_name_token.attr);
 	}
 
 	std::optional<Statement> Parser::AnalyzeMatchStatement()
 	{
-		return std::optional<Statement>();
+		if (GetNextPeeked().label != TokenLabel::KW_MATCH)
+		{
+			next = 0;
+			return std::nullopt;
+		}
+
+		if (GetNextPeeked().label != TokenLabel::SYM_LPAR)
+		{
+			throw; // match (!
+		}
+
+		Token matched_var_token = GetNextPeeked();
+		if (matched_var_token.label != TokenLabel::IDENTIFIER)
+		{
+			throw; // matched variable is identifier
+		}
+
+		if (GetNextPeeked().label != TokenLabel::SYM_RPAR)
+		{
+			throw; // match (var)!
+		}
+
+		if (GetNextPeeked().label != TokenLabel::SYM_LBRACE)
+		{
+			throw; // match (var) {!
+		}
+		
+		std::vector <Statement> case_clauses;
+		
+		ResetLookAhead();
+		Token next_token = GetNextPeeked();
+		while (next_token.label != TokenLabel::SYM_RBRACE)
+		{
+			if (GetNextPeeked().label != TokenLabel::KW_CASE)
+			{
+				throw; // expected case
+			}
+
+			Token case_match_token = GetNextPeeked();
+
+			if (case_match_token.label != TokenLabel::IDENTIFIER)
+			{
+				throw; // must be identifier
+			}
+
+			if (GetNextPeeked().label != TokenLabel::SYM_ARROW)
+			{
+				throw; // case option ->!
+			}
+
+			if (GetNextPeeked().label != TokenLabel::SYM_LBRACE)
+			{
+				throw; // case option -> {!
+			}
+
+			Statement case_block = ConstructAST(TokenLabel::SYM_RBRACE);
+
+			if (GetNextPeeked().label != TokenLabel::SYM_RBRACE)
+			{
+				throw; // case option -> { }!
+			}
+
+			ResetLookAhead();
+			case_clauses.push_back(Statement(CaseClauseStmt, case_block, case_match_token.attr));
+		}
+
+		ResetLookAhead();
+		return Statement(MatchStmt, case_clauses.begin(), case_clauses.end(), matched_var_token.attr);
 	}
 
-	std::optional<Statement> Parser::AnalyzeExpressionStatement()
+	std::optional<Statement> Parser::AnalyzeExpressionStatement(TokenLabel flag)
 	{
-		return std::optional<Statement>();
+		return std::nullopt;
 	}
 
 }

@@ -11,7 +11,7 @@ namespace val
 		Statement AST;
 
 	public:
-		Convert_to_C();
+		void Verify();
 	};
 
 }

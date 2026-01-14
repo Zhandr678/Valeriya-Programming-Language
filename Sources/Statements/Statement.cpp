@@ -23,9 +23,6 @@ val::Statement::Statement( const Statement& from )
    case EmptyStmt:
       break;
    case CaseClauseStmt:
-   case MatchStmt:
-   case MakeStructStmt:
-   case MakePropertyStmt:
       tvm::init( repr. _fld03. loc, from. repr. _fld03. loc );
       repr. _fld03. heap = takeshare( from. repr. _fld03. heap );
       break;
@@ -58,10 +55,16 @@ val::Statement::Statement( const Statement& from )
       tvm::init( repr. _fld10. loc. second, from. repr. _fld10. loc. second );
       repr. _fld10. heap = takeshare( from. repr. _fld10. heap );
       break;
-   case VarInitStmt:
-      tvm::init( repr. _fld11. loc. first, from. repr. _fld11. loc. first );
-      tvm::init( repr. _fld11. loc. second, from. repr. _fld11. loc. second );
+   case MatchStmt:
+   case MakeStructStmt:
+   case MakePropertyStmt:
+      tvm::init( repr. _fld11. loc, from. repr. _fld11. loc );
       repr. _fld11. heap = takeshare( from. repr. _fld11. heap );
+      break;
+   case VarInitStmt:
+      tvm::init( repr. _fld12. loc. first, from. repr. _fld12. loc. first );
+      tvm::init( repr. _fld12. loc. second, from. repr. _fld12. loc. second );
+      repr. _fld12. heap = takeshare( from. repr. _fld12. heap );
       break;
    }
 }
@@ -86,9 +89,6 @@ val::Statement::Statement( Statement&& from ) noexcept
    case EmptyStmt:
       break;
    case CaseClauseStmt:
-   case MatchStmt:
-   case MakeStructStmt:
-   case MakePropertyStmt:
       tvm::init( repr. _fld03. loc, std::move( from. repr. _fld03. loc ) );
       tvm::destroy( from. repr. _fld03. loc );
       repr. _fld03. heap = from. repr. _fld03. heap;
@@ -128,12 +128,19 @@ val::Statement::Statement( Statement&& from ) noexcept
       tvm::destroy( from. repr. _fld10. loc. second );
       repr. _fld10. heap = from. repr. _fld10. heap;
       break;
-   case VarInitStmt:
-      tvm::init( repr. _fld11. loc. first, std::move( from. repr. _fld11. loc. first ) );
-      tvm::destroy( from. repr. _fld11. loc. first );
-      tvm::init( repr. _fld11. loc. second, std::move( from. repr. _fld11. loc. second ) );
-      tvm::destroy( from. repr. _fld11. loc. second );
+   case MatchStmt:
+   case MakeStructStmt:
+   case MakePropertyStmt:
+      tvm::init( repr. _fld11. loc, std::move( from. repr. _fld11. loc ) );
+      tvm::destroy( from. repr. _fld11. loc );
       repr. _fld11. heap = from. repr. _fld11. heap;
+      break;
+   case VarInitStmt:
+      tvm::init( repr. _fld12. loc. first, std::move( from. repr. _fld12. loc. first ) );
+      tvm::destroy( from. repr. _fld12. loc. first );
+      tvm::init( repr. _fld12. loc. second, std::move( from. repr. _fld12. loc. second ) );
+      tvm::destroy( from. repr. _fld12. loc. second );
+      repr. _fld12. heap = from. repr. _fld12. heap;
       break;
    }
 
@@ -161,9 +168,6 @@ const val::Statement & val::Statement::operator = ( const Statement& from )
       takeshare( from. repr. _fld01. heap );
       break;
    case CaseClauseStmt:
-   case MatchStmt:
-   case MakeStructStmt:
-   case MakePropertyStmt:
       takeshare( from. repr. _fld03. heap );
       break;
    case ConditionStmt:
@@ -189,8 +193,13 @@ const val::Statement & val::Statement::operator = ( const Statement& from )
    case MakeFunctionStmt:
       takeshare( from. repr. _fld10. heap );
       break;
-   case VarInitStmt:
+   case MatchStmt:
+   case MakeStructStmt:
+   case MakePropertyStmt:
       takeshare( from. repr. _fld11. heap );
+      break;
+   case VarInitStmt:
+      takeshare( from. repr. _fld12. heap );
       break;
    }
 
@@ -212,9 +221,6 @@ const val::Statement & val::Statement::operator = ( const Statement& from )
    case EmptyStmt:
       break;
    case CaseClauseStmt:
-   case MatchStmt:
-   case MakeStructStmt:
-   case MakePropertyStmt:
       tvm::init( repr. _fld03. loc, from. repr. _fld03. loc );
       repr. _fld03. heap = from. repr. _fld03. heap;
       break;
@@ -247,10 +253,16 @@ const val::Statement & val::Statement::operator = ( const Statement& from )
       tvm::init( repr. _fld10. loc. second, from. repr. _fld10. loc. second );
       repr. _fld10. heap = from. repr. _fld10. heap;
       break;
-   case VarInitStmt:
-      tvm::init( repr. _fld11. loc. first, from. repr. _fld11. loc. first );
-      tvm::init( repr. _fld11. loc. second, from. repr. _fld11. loc. second );
+   case MatchStmt:
+   case MakeStructStmt:
+   case MakePropertyStmt:
+      tvm::init( repr. _fld11. loc, from. repr. _fld11. loc );
       repr. _fld11. heap = from. repr. _fld11. heap;
+      break;
+   case VarInitStmt:
+      tvm::init( repr. _fld12. loc. first, from. repr. _fld12. loc. first );
+      tvm::init( repr. _fld12. loc. second, from. repr. _fld12. loc. second );
+      repr. _fld12. heap = from. repr. _fld12. heap;
       break;
    }
 
@@ -280,9 +292,6 @@ const val::Statement & val::Statement::operator = ( Statement&& from ) noexcept
       case EmptyStmt:
          break;
       case CaseClauseStmt:
-      case MatchStmt:
-      case MakeStructStmt:
-      case MakePropertyStmt:
          tvm::assign( repr. _fld03. loc, std::move( from. repr. _fld03. loc ) );
          tvm::destroy( from. repr. _fld03. loc );
          dropshare( repr. _fld03. heap );
@@ -330,13 +339,21 @@ const val::Statement & val::Statement::operator = ( Statement&& from ) noexcept
          dropshare( repr. _fld10. heap );
          repr. _fld10. heap = from. repr. _fld10. heap;
          break;
-      case VarInitStmt:
-         tvm::assign( repr. _fld11. loc. first, std::move( from. repr. _fld11. loc. first ) );
-         tvm::destroy( from. repr. _fld11. loc. first );
-         tvm::assign( repr. _fld11. loc. second, std::move( from. repr. _fld11. loc. second ) );
-         tvm::destroy( from. repr. _fld11. loc. second );
+      case MatchStmt:
+      case MakeStructStmt:
+      case MakePropertyStmt:
+         tvm::assign( repr. _fld11. loc, std::move( from. repr. _fld11. loc ) );
+         tvm::destroy( from. repr. _fld11. loc );
          dropshare( repr. _fld11. heap );
          repr. _fld11. heap = from. repr. _fld11. heap;
+         break;
+      case VarInitStmt:
+         tvm::assign( repr. _fld12. loc. first, std::move( from. repr. _fld12. loc. first ) );
+         tvm::destroy( from. repr. _fld12. loc. first );
+         tvm::assign( repr. _fld12. loc. second, std::move( from. repr. _fld12. loc. second ) );
+         tvm::destroy( from. repr. _fld12. loc. second );
+         dropshare( repr. _fld12. heap );
+         repr. _fld12. heap = from. repr. _fld12. heap;
          break;
       }
 
@@ -376,9 +393,6 @@ val::Statement::~Statement( ) noexcept
    case EmptyStmt:
       break;
    case CaseClauseStmt:
-   case MatchStmt:
-   case MakeStructStmt:
-   case MakePropertyStmt:
       tvm::destroy( repr. _fld03. loc );
       dropshare( repr. _fld03. heap );
       break;
@@ -411,10 +425,16 @@ val::Statement::~Statement( ) noexcept
       tvm::destroy( repr. _fld10. loc. second );
       dropshare( repr. _fld10. heap );
       break;
-   case VarInitStmt:
-      tvm::destroy( repr. _fld11. loc. first );
-      tvm::destroy( repr. _fld11. loc. second );
+   case MatchStmt:
+   case MakeStructStmt:
+   case MakePropertyStmt:
+      tvm::destroy( repr. _fld11. loc );
       dropshare( repr. _fld11. heap );
+      break;
+   case VarInitStmt:
+      tvm::destroy( repr. _fld12. loc. first );
+      tvm::destroy( repr. _fld12. loc. second );
+      dropshare( repr. _fld12. heap );
       break;
    }
 }
@@ -441,9 +461,6 @@ bool val::Statement::very_equal_to( const Statement & other ) const
    case EmptyStmt:
       return true;
    case CaseClauseStmt:
-   case MatchStmt:
-   case MakeStructStmt:
-   case MakePropertyStmt:
       if( tvm::distinct( repr. _fld03. loc, other. repr. _fld03. loc ))
          return false;
       if( repr. _fld03. heap != other. repr. _fld03. heap )
@@ -491,12 +508,20 @@ bool val::Statement::very_equal_to( const Statement & other ) const
       if( repr. _fld10. heap != other. repr. _fld10. heap )
          return false;
       return true;
-   case VarInitStmt:
-      if( tvm::distinct( repr. _fld11. loc. first, other. repr. _fld11. loc. first ))
-         return false;
-      if( tvm::distinct( repr. _fld11. loc. second, other. repr. _fld11. loc. second ))
+   case MatchStmt:
+   case MakeStructStmt:
+   case MakePropertyStmt:
+      if( tvm::distinct( repr. _fld11. loc, other. repr. _fld11. loc ))
          return false;
       if( repr. _fld11. heap != other. repr. _fld11. heap )
+         return false;
+      return true;
+   case VarInitStmt:
+      if( tvm::distinct( repr. _fld12. loc. first, other. repr. _fld12. loc. first ))
+         return false;
+      if( tvm::distinct( repr. _fld12. loc. second, other. repr. _fld12. loc. second ))
+         return false;
+      if( repr. _fld12. heap != other. repr. _fld12. heap )
          return false;
       return true;
    }
@@ -513,9 +538,6 @@ void val::Statement::printstate( std::ostream& out ) const
       tvm::printstate( repr. _fld01. heap, out );
       break;
    case CaseClauseStmt:
-   case MatchStmt:
-   case MakeStructStmt:
-   case MakePropertyStmt:
       tvm::printstate( repr. _fld03. heap, out );
       break;
    case ConditionStmt:
@@ -541,8 +563,13 @@ void val::Statement::printstate( std::ostream& out ) const
    case MakeFunctionStmt:
       tvm::printstate( repr. _fld10. heap, out );
       break;
-   case VarInitStmt:
+   case MatchStmt:
+   case MakeStructStmt:
+   case MakePropertyStmt:
       tvm::printstate( repr. _fld11. heap, out );
+      break;
+   case VarInitStmt:
+      tvm::printstate( repr. _fld12. heap, out );
       break;
    }
 }
