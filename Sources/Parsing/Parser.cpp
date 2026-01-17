@@ -27,9 +27,63 @@ static double As_C_Number(const std::string& val_number)
 	return 0.0; // stub;
 }
 
-static val::Expression GenerateExpression(const std::vector <val::Expression>& exprs, const std::vector <val::TokenLabel>& ops)
+static int OpOrder(const val::TokenLabel& lbl)
 {
-	return val::Expression(val::EmptyExpr);
+	if (lbl == val::TokenLabel::SYM_EQUAL || lbl == val::TokenLabel::SYM_NEQ || lbl == val::TokenLabel::SYM_LESS ||
+		lbl == val::TokenLabel::SYM_GREATER || lbl == val::TokenLabel::SYM_LEQ || lbl == val::TokenLabel::SYM_GEQ ||
+		lbl == val::TokenLabel::SYM_LAND || lbl == val::TokenLabel::SYM_LOR)
+	{
+		return 0;
+	}
+
+	if (lbl == val::TokenLabel::SYM_PLUS || lbl == val::TokenLabel::SYM_MINUS || lbl == val::TokenLabel::SYM_AND ||
+		lbl == val::TokenLabel::SYM_OR || lbl == val::TokenLabel::SYM_XOR)
+	{
+		return 1;
+	}
+
+	if (lbl == val::TokenLabel::SYM_TIMES || lbl == val::TokenLabel::SYM_DIV || lbl == val::TokenLabel::SYM_MOD)
+	{
+		return 2;
+	}
+
+	if (lbl == val::TokenLabel::SYM_POW)
+	{
+		return 3;
+	}
+
+	else {
+		throw; // unexpected tokenlabel
+	}
+}
+
+static val::Expression GenerateExpression(const std::vector <val::Expression>& exprs, const std::vector <val::Token>& ops, size_t left, size_t right)
+{
+	if (left < 0 || right >= exprs.size()) { throw; }
+	if (left >= right) { return exprs[left]; }
+	
+	size_t main_op_index = 0, main_op_weight = 5;
+
+	for (size_t i = left; i < right; i++)
+	{
+		int w = OpOrder(ops[i].label);
+		if (w == 0)
+		{
+			auto left_expr = GenerateExpression(exprs, ops, left, i);
+			auto right_expr = GenerateExpression(exprs, ops, i + 1, right);
+			return val::Expression(val::BinaryExpr, left_expr, right_expr, ops[i].attr);
+		}
+
+		else if (w < main_op_weight)
+		{
+			main_op_index = i;
+			main_op_weight = w;
+		}
+	}
+
+	auto left_expr = GenerateExpression(exprs, ops, left, main_op_index);
+	auto right_expr = GenerateExpression(exprs, ops, main_op_index + 1, right);
+	return val::Expression(val::BinaryExpr, left_expr, right_expr, ops[main_op_index].attr);
 }
 
 #pragma endregion
@@ -184,7 +238,7 @@ namespace val
 			return Expression(UnaryExpr, *unary_expr, next_token.attr);
 		}
 		std::vector <Expression> single_exprs;
-		std::vector <TokenLabel> operators;
+		std::vector <Token> operators;
 		if (next_token.label == TokenLabel::SYM_MINUS)
 		{
 			is_unary = true;
@@ -264,7 +318,7 @@ namespace val
 
 			if (IsBinaryOperator(next_token.label))
 			{
-				operators.push_back(next_token.label);
+				operators.push_back(next_token);
 				next_token = GetNextPeeked();
 			}
 		}
@@ -296,7 +350,7 @@ namespace val
 				}
 				else if (IsBinaryOperator(next_token.label))
 				{
-					operators.push_back(next_token.label);
+					operators.push_back(next_token);
 					next_token = GetNextPeeked();
 					continue;
 				}
@@ -316,7 +370,7 @@ namespace val
 				}
 				else if (IsBinaryOperator(next_token.label))
 				{
-					operators.push_back(next_token.label);
+					operators.push_back(next_token);
 					next_token = GetNextPeeked();
 					continue;
 				}
@@ -336,7 +390,7 @@ namespace val
 				}
 				else if (IsBinaryOperator(next_token.label))
 				{
-					operators.push_back(next_token.label);
+					operators.push_back(next_token);
 					next_token = GetNextPeeked();
 					continue;
 				}
@@ -356,7 +410,7 @@ namespace val
 				}
 				else if (IsBinaryOperator(next_token.label))
 				{
-					operators.push_back(next_token.label);
+					operators.push_back(next_token);
 					next_token = GetNextPeeked();
 					continue;
 				}
@@ -376,7 +430,7 @@ namespace val
 				}
 				else if (IsBinaryOperator(next_token.label))
 				{
-					operators.push_back(next_token.label);
+					operators.push_back(next_token);
 					next_token = GetNextPeeked();
 					continue;
 				}
@@ -395,7 +449,7 @@ namespace val
 				}
 				else if (IsBinaryOperator(next_token.label))
 				{
-					operators.push_back(next_token.label);
+					operators.push_back(next_token);
 					next_token = GetNextPeeked();
 					continue;
 				}
@@ -409,7 +463,7 @@ namespace val
 				if (IsBinaryOperator(next_token.label))
 				{
 					single_exprs.emplace_back(VarNameExpr, name_token.attr);
-					operators.push_back(next_token.label);
+					operators.push_back(next_token);
 					next_token = GetNextPeeked();
 				}
 				else if (next_token.label == TokenLabel::SYM_LBRACE)
@@ -451,7 +505,7 @@ namespace val
 					}
 					else if (IsBinaryOperator(next_token.label))
 					{
-						operators.push_back(next_token.label);
+						operators.push_back(next_token);
 						next_token = GetNextPeeked();
 						continue;
 					}
@@ -496,7 +550,7 @@ namespace val
 					}
 					else if (IsBinaryOperator(next_token.label))
 					{
-						operators.push_back(next_token.label);
+						operators.push_back(next_token);
 						next_token = GetNextPeeked();
 						continue;
 					}
@@ -505,6 +559,7 @@ namespace val
 				else if (next_token.label == flag1 || next_token.label == flag2) 
 				{
 					single_exprs.emplace_back(VarNameExpr, name_token.attr);
+					next--;
 					break;
 				}
 				else if (next_token.label == TokenLabel::SYM_DOT)
@@ -520,7 +575,7 @@ namespace val
 					}
 					else if (IsBinaryOperator(next_token.label))
 					{
-						operators.push_back(next_token.label);
+						operators.push_back(next_token);
 						next_token = GetNextPeeked();
 						continue;
 					}
@@ -537,13 +592,13 @@ namespace val
 
 		if (single_exprs.empty()) { return std::nullopt; }
 
-		for (size_t i = 0; i < operators.size(); i++)
+		/*for (size_t i = 0; i < operators.size(); i++)
 		{
 			std::cout << single_exprs[i].sel() << " " << operators[i] << " ";
 		}
-		std::cout << (single_exprs.end() - 1)->sel();
+		std::cout << (single_exprs.end() - 1)->sel();*/
 
-		return GenerateExpression(single_exprs, operators);
+		return GenerateExpression(single_exprs, operators, 0, operators.size());
 	}
 
 	std::optional<Statement> Parser::AnalyzeInitalizationStatement()

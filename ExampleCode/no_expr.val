@@ -1,1 +1,5 @@
-("sasas" + 's' - 5) + f(1, 2) - add(5.8*5);
+int a = 5 + 5 * 5
+property prop
+{
+	opt1: {};
+}
