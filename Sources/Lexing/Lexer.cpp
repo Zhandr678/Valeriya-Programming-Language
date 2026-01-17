@@ -132,9 +132,14 @@ namespace val
 			}
 			else if (c == '+' || c == '-')
 			{
-				if (not prev_was_exp) { break; } // operator between numbers
+				if (not prev_was_exp)
+				{
+					token_size--;
+					break;
+				}
 				prev_was_exp = false;
 			}
+
 			else if (isalpha(c))
 			{
 				Commit(token_size);
@@ -310,9 +315,9 @@ namespace val
 				token_size++;
 			}
 
-			Token tok{ TokenLabel::COM_LINE, std::string(_CurToken), _CurLocation };
+			Token token{ TokenLabel::COM_LINE, std::string(_CurToken), _CurLocation };
 			Commit(token_size);
-			return tok;
+			return token;
 		}
 
 		// Block comment
@@ -328,9 +333,9 @@ namespace val
 				if (c == '*') { star = true; }
 				else if (c == '/' && star)
 				{
-					Token tok{ TokenLabel::COM_BLOCK, std::string(_CurToken), _CurLocation };
+					Token token{ TokenLabel::COM_BLOCK, std::string(_CurToken), _CurLocation };
 					Commit(token_size);
-					return tok;
+					return token;
 				}
 				else { star = false; }
 			}
@@ -341,6 +346,59 @@ namespace val
 
 		return std::nullopt;
 	}
+
+	std::optional<Token> Lexer::AnalyzeChars()
+	{
+		if (not Has(1) || _LastChar != '\'') { return std::nullopt; }
+
+		token_size++;
+
+		if (!Has(token_size + 1))
+		{
+			Commit(token_size);
+			throw LexerException("Unterminated Character Literal", _CurLocation);
+		}
+
+		char c = _LastChar;
+		token_size++;
+
+		// Escape sequence
+		if (c == '\\')
+		{
+			if (!Has(token_size + 1))
+			{
+				Commit(token_size);
+				throw LexerException("Unterminated Character Literal", _CurLocation);
+			}
+
+			char esc = _LastChar;
+			token_size++;
+
+			switch (esc)
+			{
+			case 'n': case 't': case 'r':
+			case '\\': case '\'': case '0':
+				break;
+			default:
+				Commit(token_size);
+				throw LexerException("Invalid Escape Sequence in Character Literal", _CurLocation);
+			}
+		}
+
+		if (!Has(token_size + 1) || _LastChar != '\'')
+		{
+			Commit(token_size);
+			throw LexerException("Character Literal Must Contain Exactly One Character", _CurLocation);
+		}
+
+		token_size++;
+
+		Token token{ TokenLabel::LIT_CHAR, std::string(_CurToken), _CurLocation };
+
+		Commit(token_size);
+		return token;
+	}
+
 
 	Lexer::Lexer(lexing::filereader&& input)
 		: inp(std::move(input)), token_size(0), view_capacity(0)
@@ -371,6 +429,7 @@ namespace val
 		if (auto t = AnalyzeComments()) return *t;
 		if (auto t = AnalyzeKeywords()) return *t;
 		if (auto t = AnalyzeNumbers())  return *t;
+		if (auto t = AnalyzeChars())    return *t;
 		if (auto t = AnalyzeLiterals()) return *t;
 		if (auto t = AnalyzeSymbols())  return *t;
 

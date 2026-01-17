@@ -30,9 +30,11 @@ namespace val
 		std::optional <Statement> AnalyzeMakePropertyStatement();
 		std::optional <Statement> AnalyzeMakeEnumStatement();
 		std::optional <Statement> AnalyzeMatchStatement();
-		std::optional <Statement> AnalyzeExpressionStatement(TokenLabel flag1 = TokenLabel::SYM_COMMA, TokenLabel flag2 = TokenLabel::SYM_SEMICOLON);
+
+		Expression ParseFieldCall();
 
 	public:
+		std::optional <Expression> ParseExpression(TokenLabel flag1, TokenLabel flag2);
 		explicit Parser(Lexer&& lexer);
 		
 		Parser() = delete;

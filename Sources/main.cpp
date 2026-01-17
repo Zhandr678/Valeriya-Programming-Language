@@ -41,14 +41,12 @@ int main(int argc, char* argv[])
 			)
 		);
 
-		auto AST = parser.ConstructAST();
-
-		std::cout << AST.view_Block().statements(1).view_Assignment().var_name();
+		auto expr = parser.ParseExpression(val::TokenLabel::SYM_SEMICOLON, val::TokenLabel::SYM_SEMICOLON);
 
 	}
 	catch (const std::logic_error& e)
 	{
-		std::cout << e.what();
+		std::cout << "Error" << e.what();
 	}
 	return 0;
 }

@@ -22,6 +22,7 @@ namespace val
 		std::optional <Token> AnalyzeKeywords();
 		std::optional <Token> AnalyzeSymbols();
 		std::optional <Token> AnalyzeComments();
+		std::optional <Token> AnalyzeChars();
 
 	public:
 		explicit Lexer(lexing::filereader&& input);

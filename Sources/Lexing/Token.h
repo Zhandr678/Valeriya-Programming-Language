@@ -24,7 +24,7 @@ namespace val
 
         IDENTIFIER,
 
-        LIT_NUMBER, LIT_STRING, LIT_TRUE, LIT_FALSE, LIT_NULL, LIT_INTEGER,
+        LIT_NUMBER, LIT_STRING, LIT_TRUE, LIT_FALSE, LIT_NULL, LIT_INTEGER, LIT_CHAR,
 
         SYM_LBRACE, SYM_RBRACE, SYM_LBRACKET, SYM_RBRACKET, SYM_LPAR, SYM_RPAR,
         SYM_COLON, SYM_SEMICOLON, SYM_COMMA, SYM_DOT, SYM_ARROW,
@@ -78,6 +78,7 @@ namespace std {
         case val::TokenLabel::LIT_TRUE:      return out << "LIT_TRUE";
         case val::TokenLabel::LIT_FALSE:     return out << "LIT_FALSE";
         case val::TokenLabel::LIT_NULL:      return out << "LIT_NULL";
+        case val::TokenLabel::LIT_CHAR:      return out << "LIT_CHAR";
         case val::TokenLabel::SYM_LBRACE:    return out << "SYM_LBRACE";
         case val::TokenLabel::SYM_RBRACE:    return out << "SYM_RBRACE";
         case val::TokenLabel::SYM_LPAR:      return out << "SYM_LPAR";
