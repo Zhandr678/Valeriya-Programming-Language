@@ -43,7 +43,7 @@ int main(int argc, char* argv[])
 
 		auto AST = parser.ConstructAST();
 
-		std::cout << AST.view_Block().statements(0).view_Assignment().expr().view_IntLiteral().value();
+		std::cout << AST.view_Block().statements(0).view_Match().cases(0).view_CaseClause().is_wildcard();
 	}
 	catch (const std::logic_error& e)
 	{

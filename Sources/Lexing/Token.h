@@ -21,7 +21,7 @@ namespace val
         KW_INT, KW_DOUBLE, KW_STRING, KW_BOOL, KW_CHAR, KW_VOID,
         KW_IF, KW_ELIF, KW_ELSE, KW_FOR, KW_WHILE, KW_ENUM, 
         KW_STRUCT, KW_PROP, KW_MATCH, KW_CASE, KW_RET, KW_FUNC, KW_INOUT,
-        KW_CONTINUE, KW_BREAK,
+        KW_CONTINUE, KW_BREAK, KW_WILDCARD,
 
         IDENTIFIER,
 
@@ -74,6 +74,7 @@ namespace std {
         case val::TokenLabel::KW_ENUM:       return out << "KW_ENUM";
         case val::TokenLabel::KW_CONTINUE:   return out << "KW_CONTINUE";
         case val::TokenLabel::KW_BREAK:      return out << "KW_BREAK";
+        case val::TokenLabel::KW_WILDCARD:   return out << "KW_WILDCARD";
         case val::TokenLabel::IDENTIFIER:    return out << "IDENTIFIER";
         case val::TokenLabel::LIT_NUMBER:    return out << "LIT_NUMBER";
         case val::TokenLabel::LIT_INTEGER:   return out << "LIT_INTEGER";

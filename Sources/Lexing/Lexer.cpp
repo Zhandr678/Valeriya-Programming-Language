@@ -55,97 +55,55 @@ namespace val
 
 	std::optional<Token> Lexer::AnalyzeNumbers()
 	{
-		if (not Has(1) || not std::isdigit(_LastChar)) { return std::nullopt; }
+		if (!Has(1) || !std::isdigit(_LastChar))
+			return std::nullopt;
 
-		bool is_zero = _LastChar == '0';
 		bool dot = false;
 		bool exp = false;
-		bool exp_is_zero = false;
-		bool dot_for_exp = false;
 		bool prev_was_exp = false;
-		bool has_leading_number = true;
+
 		token_size++;
 
 		while (Has(token_size + 1))
 		{
 			char c = _LastChar;
 			token_size++;
+
 			if (std::isdigit(c))
 			{
-				if (is_zero && not dot)
-				{
-					Commit(token_size);
-					throw LexerException("No Dot After Leading 0", _CurLocation);
-				} // number after 0
-
 				prev_was_exp = false;
-				if (exp)
-				{
-					if (exp_is_zero && not dot_for_exp)
-					{
-						Commit(token_size);
-						throw LexerException("No Dot After Leading e0", _CurLocation);
-					} // number after e0, E0 
-					if (c == '0') { exp_is_zero = true; }
-
-					has_leading_number = true;
-				}
 			}
-			else if (c == '.' && exp)
-			{
-				if (not has_leading_number)
-				{
-					Commit(token_size);
-					throw LexerException("Dot Without Leading Number", _CurLocation);
-				} // dot without leading number
-				if (dot_for_exp)
-				{
-					Commit(token_size);
-					throw LexerException("2 Dots in a Number", _CurLocation);
-				} // 2 dots
-
-				prev_was_exp = false;
-				dot_for_exp = true;
-			}
-			else if (c == '.' && not exp)
+			else if (c == '.' && !exp)
 			{
 				if (dot)
 				{
 					Commit(token_size);
-					throw LexerException("2 Dots in a Number", _CurLocation);
-				} // 2 dots
-
-				prev_was_exp = false;
+					throw LexerException("Multiple dots in number", _CurLocation);
+				}
 				dot = true;
+				prev_was_exp = false;
 			}
 			else if (c == 'e' || c == 'E')
 			{
 				if (exp)
 				{
 					Commit(token_size);
-					throw LexerException("2 Exponent Symbols in a Number", _CurLocation);
-				} // 2 exps
-
+					throw LexerException("Multiple exponent symbols", _CurLocation);
+				}
 				exp = true;
-				has_leading_number = false;
 				prev_was_exp = true;
 			}
-			else if (c == '+' || c == '-')
+			else if ((c == '+' || c == '-') && prev_was_exp)
 			{
-				if (not prev_was_exp)
-				{
-					token_size--;
-					break;
-				}
 				prev_was_exp = false;
 			}
-
-			else if (isalpha(c))
+			else if (std::isalpha(c))
 			{
 				Commit(token_size);
-				throw LexerException("Identifier Name Starting from Number", _CurLocation); // bad identifier name
+				throw LexerException("Identifier starting with number", _CurLocation);
 			}
-			else {
+			else
+			{
 				token_size--;
 				break;
 			}
@@ -154,18 +112,16 @@ namespace val
 		if (prev_was_exp)
 		{
 			Commit(token_size);
-			throw LexerException("Number Finished with Exponent Symbol", _CurLocation);
-		} // finished with e, E
-
-		TokenLabel num_label = TokenLabel::LIT_NUMBER;
-		if (not dot && not dot_for_exp)
-		{
-			num_label = TokenLabel::LIT_INTEGER;
+			throw LexerException("Exponent has no digits", _CurLocation);
 		}
-		Token tok{ num_label, std::string(_CurToken), _CurLocation };
+
+		TokenLabel label = (!dot && !exp) ? TokenLabel::LIT_INTEGER : TokenLabel::LIT_NUMBER;
+
+		Token tok{ label, std::string(_CurToken), _CurLocation };
 		Commit(token_size);
 		return tok;
 	}
+
 
 	std::optional<Token> Lexer::AnalyzeLiterals()
 	{
@@ -233,6 +189,7 @@ namespace val
 
 		else if (text == "match")    label = TokenLabel::KW_MATCH;
 		else if (text == "case")     label = TokenLabel::KW_CASE;
+		else if (text == "_")        label = TokenLabel::KW_WILDCARD;
 
 		else if (text == "return")   label = TokenLabel::KW_RET;
 		else if (text == "fn")       label = TokenLabel::KW_FUNC;

@@ -1,4 +1,4 @@
-mylang.ext:
+// mylang.ext:
 
 // Assume we are writing a game engine script
 
@@ -23,14 +23,14 @@ fn exec(Command c) -> void
 		case Rotate -> {
 			match (c.r)
 			{
-				case Angle -> { /* rotate angle (c.r.angle) impl */ };
-				case Radian -> { /* rotate radians (c.r.rads) impl */ };
-				case Quaternion -> { /* rotate quaternion (c.r.a, c.r.b, c.r.c, c.r.d) impl */ };
+				case Angle -> { /* rotate angle (c.r.angle) impl */ }
+				case Radian -> { /* rotate radians (c.r.rads) impl */ }
+				case Quaternion -> { /* rotate quaternion (c.r.a, c.r.b, c.r.c, c.r.d) impl */ }
 			}
 		}
 		case Move -> {
 			/* moving (c.dx, c.dy) impl */	
 		}
-		case Stop -> { /* external function */ halt(); };
+		case Stop -> { /* external function */ halt(); }
 	}
 }

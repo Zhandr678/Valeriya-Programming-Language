@@ -7,11 +7,8 @@ namespace val
 
 	class Semantics
 	{
-	private:
-		Statement AST;
-
 	public:
-		void Verify();
+		static void Verify(Statement&& AST);
 	};
 
 }

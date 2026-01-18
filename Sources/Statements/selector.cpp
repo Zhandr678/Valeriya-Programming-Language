@@ -8,6 +8,16 @@ const char* val::getcstring( selector sel )
 {
    switch( sel )
    {
+   case ElifConditionStmt :
+      return "ElifConditionStmt";
+   case ContinueStmt :
+      return "ContinueStmt";
+   case ArrayIndex :
+      return "ArrayIndex";
+   case VarInitStmt :
+      return "VarInitStmt";
+   case FnCallExpr :
+      return "FnCallExpr";
    case BinaryExpr :
       return "BinaryExpr";
    case BoolLiteralExpr :
@@ -20,10 +30,6 @@ const char* val::getcstring( selector sel )
       return "FieldCallExpr";
    case EmptyExpr :
       return "EmptyExpr";
-   case VarInitStmt :
-      return "VarInitStmt";
-   case FnCallExpr :
-      return "FnCallExpr";
    case IntLiteralExpr :
       return "IntLiteralExpr";
    case StringLiteralExpr :
@@ -40,10 +46,6 @@ const char* val::getcstring( selector sel )
       return "AssignmentStmt";
    case BlockOfStmt :
       return "BlockOfStmt";
-   case ElifConditionStmt :
-      return "ElifConditionStmt";
-   case ContinueStmt :
-      return "ContinueStmt";
    case CaseClauseStmt :
       return "CaseClauseStmt";
    case EmptyStmt :

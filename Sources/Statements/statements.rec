@@ -25,6 +25,9 @@
 %option VarName { VarNameExpr } =>
     # name : std::string
 
+%option ArrayIndex { ArrayIndex } =>
+    # var_name : std::string, at : int
+
 %option FieldCall { FieldCallExpr } =>
     caller : Expression, 
     field : Expression
@@ -124,8 +127,9 @@
 
 %option CaseClause { CaseClauseStmt } =>
     case_body : Statement,
-    # opt_name : std::string
+    case_expr : Expression,
+    # is_wildcard : bool
 
 %option Match { MatchStmt } => 
-    [ cases : Statement ],
-    # var_name : std::string
+    matched_expr : Expression,
+    [ cases : Statement ]

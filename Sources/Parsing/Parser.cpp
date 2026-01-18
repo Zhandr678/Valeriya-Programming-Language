@@ -22,11 +22,6 @@ static bool IsBinaryOperator(val::TokenLabel lbl)
 		lbl == val::TokenLabel::SYM_LEQ || lbl == val::TokenLabel::SYM_GEQ;
 }
 
-static double As_C_Number(const std::string& val_number)
-{
-	return 0.0; // stub;
-}
-
 static int OpOrder(const val::TokenLabel& lbl)
 {
 	if (lbl == val::TokenLabel::SYM_EQUAL || lbl == val::TokenLabel::SYM_NEQ || lbl == val::TokenLabel::SYM_LESS ||
@@ -97,15 +92,15 @@ static val::Expression FieldCallFromCallVector(const std::vector <std::string>& 
 
 #pragma endregion
 
-namespace val 
+namespace val
 {
 
-	Parser::Parser(Lexer&& lexer) 
+	Parser::Parser(Lexer&& lexer)
 		: lexer(std::move(lexer))
 	{
 	}
 
-	Parser::Parser(Parser&& parser) noexcept 
+	Parser::Parser(Parser&& parser) noexcept
 		: lexer(std::move(parser.lexer))
 	{
 	}
@@ -161,7 +156,20 @@ namespace val
 				stms.push_back(*st);
 			}
 			else {
-				throw ParserException("Invalid Statement", GetFileName(), EmptyStmt, GetLine());
+				auto expr = ParseExpression(_Dupl(TokenLabel::SYM_SEMICOLON));
+
+				if (not expr.has_value())
+				{
+					throw ParserException("Invalid Statement", GetFileName(), EmptyStmt, GetLine());
+				}
+
+				if (GetNextPeeked().label != TokenLabel::SYM_SEMICOLON)
+				{
+					throw ParserException("Expected Semicolon", GetFileName(), ExprCallStmt, GetLine());
+				}
+
+				ResetLookAhead();
+				stms.emplace_back(ExprCallStmt, *expr);
 			}
 			next_token = GetNextPeeked();
 		}
@@ -276,6 +284,7 @@ namespace val
 		}
 
 		if (assignments.empty()) { return std::nullopt; }
+		ResetLookAhead();
 		return Statement(BlockOfStmt, assignments.begin(), assignments.end());
 	}
 
@@ -293,8 +302,9 @@ namespace val
 			return Statement(ReturnStmt, Expression(EmptyExpr));
 		}
 
+		next--;
 		auto ret_expr = ParseExpression(_Dupl(TokenLabel::SYM_SEMICOLON));
-		
+
 		if (not ret_expr.has_value())
 		{
 			throw ParserException("Expected Expression", GetFileName(), ReturnStmt, GetLine());
@@ -360,7 +370,7 @@ namespace val
 			next_token = GetNextPeeked();
 			if (next_token.label == TokenLabel::LIT_NUMBER)
 			{
-				single_exprs.emplace_back(DoubleLiteralExpr, -1 * As_C_Number(next_token.attr));
+				single_exprs.emplace_back(DoubleLiteralExpr, -1 * std::stod(next_token.attr));
 			}
 			else if (next_token.label == TokenLabel::LIT_INTEGER)
 			{
@@ -427,7 +437,7 @@ namespace val
 			}
 		}
 
-		if (is_unary) 
+		if (is_unary)
 		{
 			next_token = GetNextPeeked();
 
@@ -514,7 +524,7 @@ namespace val
 
 			else if (next_token.label == TokenLabel::LIT_NUMBER)
 			{
-				single_exprs.emplace_back(DoubleLiteralExpr, As_C_Number(next_token.attr));
+				single_exprs.emplace_back(DoubleLiteralExpr, std::stod(next_token.attr));
 
 				next_token = GetNextPeeked();
 
@@ -671,7 +681,7 @@ namespace val
 					}
 					else { throw ParserException("Expression MUST NOT Follow Expression", GetFileName(), ExprCallStmt, GetLine());; } // expression followed by expression
 				}
-				else if (next_token.label == flag1 || next_token.label == flag2) 
+				else if (next_token.label == flag1 || next_token.label == flag2)
 				{
 					single_exprs.emplace_back(VarNameExpr, name_token.attr);
 					next--;
@@ -725,10 +735,18 @@ namespace val
 			next = 0;
 			return std::nullopt;
 		}
+
+		Token next_token = GetNextPeeked();
+		if (next_token.label == TokenLabel::SYM_LPAR || next_token.label == TokenLabel::SYM_LBRACE || next_token.label == TokenLabel::SYM_LBRACKET)
+		{
+			next = 0;
+			return std::nullopt;
+		}
+		next--;
 		
 		std::vector <Statement> var_inits;
 		
-		Token next_token = GetNextPeeked();
+		next_token = GetNextPeeked();
 		while (next_token.label != TokenLabel::SYM_SEMICOLON)
 		{
 			Token varname_token = std::move(next_token);
@@ -820,7 +838,7 @@ namespace val
 
 			if (next_token.label != TokenLabel::IDENTIFIER)
 			{
-				throw;
+				throw ParserException(next_token.attr + " is not a Field Name", GetFileName(), AssignmentStmt, GetLine());
 			}
 
 			call_order.push_back(varname_token.attr);
@@ -1339,10 +1357,10 @@ namespace val
 			throw ParserException("Expected Matching Variable", GetFileName(), MatchStmt, GetLine()); // match (!
 		}
 
-		Token matched_var_token = GetNextPeeked();
-		if (matched_var_token.label != TokenLabel::IDENTIFIER)
+		auto matched_expr = ParseExpression(_Dupl(TokenLabel::SYM_RPAR));
+		if (not matched_expr.has_value())
 		{
-			throw ParserException("Matched Variable MUST BE an Identifier", GetFileName(), MatchStmt, GetLine()); // matched variable is identifier
+			throw ParserException("Expected Expression", GetFileName(), MatchStmt, GetLine());
 		}
 
 		if (GetNextPeeked().label != TokenLabel::SYM_RPAR)
@@ -1366,11 +1384,22 @@ namespace val
 				throw ParserException("Expected Case Clause", GetFileName(), MatchStmt, GetLine()); // expected case
 			}
 
-			Token case_match_token = GetNextPeeked();
+			bool is_wildcard = false;
+			std::optional <Expression> case_expr;
 
-			if (case_match_token.label != TokenLabel::IDENTIFIER)
+			if (GetNextPeeked().label == TokenLabel::KW_WILDCARD)
 			{
-				throw ParserException("Expected Identifier", GetFileName(), MatchStmt, GetLine()); // must be identifier
+				is_wildcard = true;
+			}
+			else 
+			{
+				next--;
+				case_expr = ParseExpression(_Dupl(TokenLabel::SYM_ARROW));
+
+				if (not case_expr.has_value())
+				{
+					throw ParserException("Expected Expression", GetFileName(), MatchStmt, GetLine());;
+				}
 			}
 
 			if (GetNextPeeked().label != TokenLabel::SYM_ARROW)
@@ -1393,12 +1422,12 @@ namespace val
 			}
 
 			ResetLookAhead();
-			case_clauses.push_back(Statement(CaseClauseStmt, case_block, case_match_token.attr));
+			case_clauses.push_back(Statement(CaseClauseStmt, case_block, case_expr.value_or(Expression(EmptyExpr)), is_wildcard));
 			next_token = GetNextPeeked();
 		}
 
 		ResetLookAhead();
-		return Statement(MatchStmt, case_clauses.begin(), case_clauses.end(), matched_var_token.attr);
+		return Statement(MatchStmt, *matched_expr, case_clauses.begin(), case_clauses.end());
 	}
 
 }

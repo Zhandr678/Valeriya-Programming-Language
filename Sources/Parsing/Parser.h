@@ -30,14 +30,14 @@ namespace val
 		std::optional <Statement> AnalyzeMakePropertyStatement();
 		std::optional <Statement> AnalyzeMakeEnumStatement();
 		std::optional <Statement> AnalyzeMatchStatement();
-		std::optional <Statement> ParseForLoopFinalStatement();
 		std::optional <Statement> AnalyzeReturnStatement();
 		std::optional <Statement> AnalyzeLoopCommands();
-		Expression ParseFieldCall();
+		std::optional <Statement> ParseForLoopFinalStatement();
 		
+		Expression ParseFieldCall();
+		std::optional <Expression> ParseExpression(TokenLabel flag1, TokenLabel flag2);
 
 	public:
-		std::optional <Expression> ParseExpression(TokenLabel flag1, TokenLabel flag2);
 		explicit Parser(Lexer&& lexer);
 		
 		Parser() = delete;

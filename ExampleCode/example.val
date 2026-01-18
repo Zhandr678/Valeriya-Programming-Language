@@ -1,0 +1,5 @@
+match(m)
+{
+	case k -> { int l; if(true){} }
+	case _ -> { string s = " efgdfgfg "; }
+}
