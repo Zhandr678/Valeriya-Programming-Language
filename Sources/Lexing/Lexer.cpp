@@ -171,6 +171,7 @@ namespace val
 		else if (text == "bool")     label = TokenLabel::KW_BOOL;
 		else if (text == "char")     label = TokenLabel::KW_CHAR;
 		else if (text == "void")     label = TokenLabel::KW_VOID;
+		else if (text == "uint")     label = TokenLabel::KW_UINT;
 
 		else if (text == "if")       label = TokenLabel::KW_IF;
 		else if (text == "elif")     label = TokenLabel::KW_ELIF;

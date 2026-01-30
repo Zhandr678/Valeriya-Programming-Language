@@ -20,6 +20,7 @@ namespace val
 		Token GetNextPeeked();
 		void ResetLookAhead();
 
+		std::optional <Statement> AnalyzeBlockOfStatement();
 		std::optional <Statement> AnalyzeInitalizationStatement();
 		std::optional <Statement> AnalyzeAssignmentStatement();
 		std::optional <Statement> AnalyzeConditionStatement();

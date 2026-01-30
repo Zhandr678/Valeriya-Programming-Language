@@ -2,13 +2,18 @@
 
 #include "Statements/Statement.h"
 
+#include <unordered_map>
+
 namespace val
 {
 
 	class Semantics
 	{
+	private:
+		inline static std::unordered_map <std::string, bool> variable_table, type_table;
+
 	public:
-		static void Verify(Statement&& AST);
+		static bool Verify(const Statement& AST);
 	};
 
 }

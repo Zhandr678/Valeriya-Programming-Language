@@ -28,9 +28,4 @@ void LexerTest(const std::filesystem::path& val_file)
 	}
 }
 
-int main()
-{
-	LexerTest(std::string(PROJECT_ROOT_DIR) + std::string("/ExampleCode/no_expr.val"));
-}
-
 #endif

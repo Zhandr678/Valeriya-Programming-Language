@@ -86,6 +86,11 @@
     [ inits : Statement ],
     # struct_name : std::string
 
+// ASSERT Statement is MakeStruct
+%option TemplMakeStruct { TemplMakeStructStmt } =>
+    make_struct_stmt : Statement,
+    [ typenames : std::string ]
+
 %option MakeEnum { MakeEnumStmt } =>
     [ enum_variants : std::string ],
     # enum_name : std::string
@@ -100,10 +105,20 @@
     [ params : Statement ],
     # fn_name : std::string, ret_type_name : std::string
 
+// ASSERT Statement is MakeFunction
+%option TemplMakeFunction { TemplMakeFunctionStmt } =>
+    make_function_stmt : Statement,
+    [ typenames : std::string ]
+
 // ASSERT Statement is MakeStruct
 %option MakeProperty { MakePropertyStmt } =>
     [ opts : Statement ],
     # prop_name : std::string
+
+// ASSERT Statement is MakeProperty
+%option TemplMakeProperty { TemplMakePropertyStmt } =>
+    make_prop_stmt : Statement,
+    [ typenames : std::string ]
 
 // ASSERT Statement is Block
 %option ElifCondition { ElifConditionStmt } =>

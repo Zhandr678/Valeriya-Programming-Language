@@ -6,12 +6,11 @@
 #include <algorithm>
 #include <format>
 
+#include "argsconfig.h"
 #include "Lexing/Lexer.h"
 #include "Parsing/Parser.h"
-
-#include "argsconfig.h"
-#include "tvm/includes.h"
-#include "Statements/Expression.h"
+#include "SemanticAnalysis/Semantics.h"
+#include "Compilation/Compiler.h"
 
 #ifndef RUN_TESTS
 
@@ -35,6 +34,7 @@ int main(int argc, char* argv[])
 	std::ifstream in(val_source_path);
 
 	try {
+
 		val::Parser parser(
 			val::Lexer(
 				lexing::filereader(&in, val_source_path.filename().string())
@@ -42,15 +42,13 @@ int main(int argc, char* argv[])
 		);
 
 		auto AST = parser.ConstructAST();
-
-		//std::cout << AST.view_Block().statements(1).view_Block().statements(0).view_VarInit().init_expr().view_FieldCall().caller().view_StructInit().struct_name();
+		std::cout << AST.view_Block().statements(1).view_Block().statements(0).sel();
 	}
 	catch (const std::logic_error& e)
 	{
-		std::cout << "Error: " << e.what();
+		std::cout << e.what();
 	}
-
-	return 0;
+	//std::cout << AST.view_Block().statements(8).view_MakeFunction().params(0).view_FnArgs().is_inout();
 }
 
 #endif

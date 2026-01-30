@@ -18,7 +18,7 @@ namespace val
     {
         _ERROR_, WHITESPACE,
 
-        KW_INT, KW_DOUBLE, KW_STRING, KW_BOOL, KW_CHAR, KW_VOID,
+        KW_INT, KW_DOUBLE, KW_STRING, KW_BOOL, KW_CHAR, KW_VOID, KW_UINT,
         KW_IF, KW_ELIF, KW_ELSE, KW_FOR, KW_WHILE, KW_ENUM, 
         KW_STRUCT, KW_PROP, KW_MATCH, KW_CASE, KW_RET, KW_FUNC, KW_INOUT,
         KW_CONTINUE, KW_BREAK, KW_WILDCARD,
@@ -59,6 +59,7 @@ namespace std {
         case val::TokenLabel::KW_BOOL:       return out << "KW_BOOL";
         case val::TokenLabel::KW_CHAR:       return out << "KW_CHAR";
         case val::TokenLabel::KW_VOID:       return out << "KW_VOID";
+        case val::TokenLabel::KW_UINT:       return out << "KW_UINT";
         case val::TokenLabel::KW_IF:         return out << "KW_IF";
         case val::TokenLabel::KW_ELIF:       return out << "KW_ELIF";
         case val::TokenLabel::KW_ELSE:       return out << "KW_ELSE";

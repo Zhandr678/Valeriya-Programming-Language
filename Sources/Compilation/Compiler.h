@@ -5,7 +5,7 @@
 namespace val
 {
 
-	class Compile
+	class Compiler
 	{
 	public:
 		static void Convert_to_C(const Statement& AST, std::string_view out_c_file);

@@ -21,7 +21,7 @@ namespace val {
    private:
       selector _ssss;
 
-      using _loc00 = tvm::unit;
+      using _loc00 = bool;
       using _scal00 = std::tuple<Expression,Statement,Expression>;
       using _rep00 = tvm::unit;
       using _loc01 = tvm::unit;
@@ -106,7 +106,7 @@ namespace val {
       bool very_equal_to( const Statement& ) const;
       void printstate( std::ostream& out ) const;
       
-      Statement( selector sel, const Expression & _xx00, const Statement & _xx01, const Expression & _xx02 )
+      Statement( selector sel, const Expression & _xx00, const Statement & _xx01, const Expression & _xx02, const bool & _xx03 )
          : _ssss( sel )
       {
          if constexpr( check )
@@ -119,6 +119,7 @@ namespace val {
                throw std::invalid_argument( "wrong selector for constructor" );
             }
          }
+         tvm::init( repr. _fld00. loc, _xx03 );
          repr. _fld00. heap = takeshare( tvm::constr_scalar< _scal00 > ( std::tuple( _xx00, _xx01, _xx02 ) ));
       }
 
@@ -407,6 +408,8 @@ namespace val {
          const Statement & operator * ( ) const { return * _xxxx; }
          const_ArrayInit( const Statement* _xxxx ) : _xxxx( _xxxx ) { }
 
+         const bool & is_dynamic( ) const { return _xxxx -> repr. _fld00. loc; }
+
          const Expression & init_expr( ) const { return get<0> ( _xxxx -> repr. _fld00. heap -> scal ); }
          const Statement & type_info( ) const { return get<1> ( _xxxx -> repr. _fld00. heap -> scal ); }
          const Expression & alloc_size( ) const { return get<2> ( _xxxx -> repr. _fld00. heap -> scal ); }
@@ -427,6 +430,10 @@ namespace val {
          Statement* _xxxx;
          mut_ArrayInit( Statement* _xxxx ) : _xxxx( _xxxx ) { }
          const Statement & operator * ( ) const { return * _xxxx; }
+
+         bool & is_dynamic( ) const { return _xxxx -> repr. _fld00. loc; }
+         bool extr_is_dynamic( ) const { return std::move( _xxxx -> repr. _fld00. loc ); }
+         void update_is_dynamic( const bool & from ) const { _xxxx -> repr. _fld00. loc = from; }
 
          const Expression & init_expr( ) const { return get<0> ( _xxxx -> repr. _fld00. heap -> scal ); }
          Expression extr_init_expr( ) const {
