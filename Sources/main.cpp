@@ -49,7 +49,7 @@ int main(int argc, char* argv[])
 	{
 		std::cout << e.what();
 	}
-	//std::cout << AST.view_Block().statements(8).view_MakeFunction().params(0).view_FnArgs().is_inout();
+	return 0;
 }
 
 #endif
