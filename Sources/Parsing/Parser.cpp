@@ -433,6 +433,10 @@ namespace val
 					next--;
 					single_exprs.emplace_back(UnaryExpr, Expression(VarNameExpr, name_token.attr), "-");
 				}
+				else if (IsBinaryOperator(next_token.label))
+				{
+					single_exprs.emplace_back(UnaryExpr, Expression(VarNameExpr, name_token.attr), "-");
+				}
 				else {
 					throw ParserException("Expected ';'", GetFileName(), ExprCallStmt, GetLine());
 				}

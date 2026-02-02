@@ -5,6 +5,7 @@
 #include <fstream>
 #include <algorithm>
 #include <format>
+#include <memory>
 
 #include "argsconfig.h"
 #include "Lexing/Lexer.h"
@@ -42,7 +43,7 @@ int main(int argc, char* argv[])
 		);
 
 		auto AST = parser.ConstructAST();
-		std::cout << AST.view_Block().statements(1).view_Block().statements(0).sel();
+		std::cout << AST.view_Block().statements(0).view_MakeStruct().inits(4).view_ArrayInit().type_info().view_VarInit().var_name();
 	}
 	catch (const std::logic_error& e)
 	{

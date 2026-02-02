@@ -1,6 +1,4 @@
-struct vector
+struct A
 {
-	int i[];
-
-	int size;
+	int n = -c(x, y)[50].d;
 }

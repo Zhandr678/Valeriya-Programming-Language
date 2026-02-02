@@ -1,0 +1,6 @@
+*.o
+INSTRUCTIONS/instructions.log
+INSTRUCTIONS/instructions.ps
+INSTRUCTIONS/instructions.dvi
+INSTRUCTIONS/instructions.aux
+
