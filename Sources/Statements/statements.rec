@@ -92,7 +92,8 @@
 
 %option FnArgs { FnArgsStmt } =>
     default_expr : Expression,
-    # type_name : std::string, is_inout : bool, var_name : std::string
+    [ array_info : std::pair <bool, int> ],
+    # type_name : std::string, is_inout : bool, var_name : std::string, is_array : bool
 
 // ASSERT 1st Statement is Block, ASSERT 2nd Statement is FnArgs
 %option MakeFunction { MakeFunctionStmt } =>

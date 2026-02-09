@@ -2,89 +2,83 @@
 
 #include "Statements/Statement.h"
 #include "Commands/Command.h"
+#include "DSU.h"
 
 #include <unordered_map>
-#include <set>
 
 #include "Types.h"
-#include "ExprAnalysis.h"
-
+using Command = std::variant<std::monostate>;
 namespace val
 {
 	class Semantics
 	{
-	private:
-		Statement AST;
+	public:
+		DSU dsu_COW;
 
-		std::unordered_map <std::string, VariableKind> syntax_table;
-		std::unordered_map <std::string, CustomTypeClass> type_table;
-		std::unordered_map <std::string, std::pair <VariableKind, std::unordered_map <std::string, VariableKind>>> fn_table;
+		std::unordered_map <std::string, VariableKind> symbol_table;
+		std::unordered_map <std::string, TypeClass> type_table;
+		std::unordered_map <std::string, FnTable> fn_table;
+		std::unordered_map <std::string, bool> active;
 
 #pragma region("Type Table Helpers")
-		StructType ConstructStructType(const Statement& make_struct_stmt) noexcept;
-		PropertyType ConstructPropertyType(const Statement& make_property_stmt) noexcept;
-		EnumType ConstructEnumType(const Statement& make_enum_stmt) noexcept;
+		StructType ConstructStructType(const Statement& make_struct_stmt) const noexcept;
+		PropertyType ConstructPropertyType(const Statement& make_property_stmt) const noexcept;
+		EnumType ConstructEnumType(const Statement& make_enum_stmt) const noexcept;
+		FnTable ConstructFn(const Statement& make_fn_stmt) const noexcept;
 
-		void RemoveStructType(const std::string& type_name);
-		void RemovePropertyType(const std::string& type_name);
-		void RemoveEnumType(const std::string& type_name);
-
-		TypeClass IdentifyType(const std::string& var_name);
-		TypeClass IdentifyType(const Expression& expr);
-
-		bool TypeExists(const std::string& type_name);
+		bool NameExists(const std::string& name) const;
 #pragma endregion
 
 #pragma region("Symbol Table Helpers")
-		void AddVariable(const Statement& var_init);
-		void RemoveVariable(const std::string& var_name);
+		void AddVariable(const Statement& var_init) noexcept;
+		void AddType(const std::string& type_name, TypeClass&& type) noexcept;
+		void AddFn(const std::string& fn_name, FnTable&& ftable) noexcept;
 
-		bool VariableExists(const std::string& var_name);
-		bool FnNameExists(const std::string& fn_name);
+		void Deactivate(const std::string& name) noexcept;
 #pragma endregion
-
-		bool IdentifierNameExists(const std::string& name);
-		bool VerifyExpression(const Expression& expr);
-		bool InoutUniqueness(const Statement& make_fn_stmt);
-		std::string ExprToStr(const Expression& expr);
+		void VerifyInoutUniqueness(const Expression& fn_call_expr) const;
 
 #pragma region("Semantics")
-
-		ExpressionAnalysisResult AnalyzeVarNameExpr(const Expression& varname_expr);
-		ExpressionAnalysisResult AnalyzeArrayCallExpr(const Expression& array_call);
-		// Do we need to analyze literals?
-		ExpressionAnalysisResult AnalyzeFieldCallExpr(const Expression& field_call);
-		ExpressionAnalysisResult AnalyzeFnCallExpr(const Expression& fn_call);
-		ExpressionAnalysisResult AnalyzeBinopExpr(const Expression& binop_expr);
-		ExpressionAnalysisResult AnalyzeUnaryExpr(const Expression& unary_expr);
-
-		ExpressionAnalysisResult AnalyzeExpression(const Expression& expr);
 		
-		Command AnalyzeVarInit(const Statement& var_init_stmt);
-		Command AnalyzeArrayInit(const Statement& array_init_stmt);
-		Command AnalyzeWhileLoop(const Statement& while_loop_stmt);
-		Command AnalyzeForLoop(const Statement& for_stmt);
-		Command AnalyzeMakeFunction(const Statement& make_fn_stmt);
-		Command AnalyzeMakeStruct(const Statement& make_struct_stmt);
-		Command AnalyzeMakeProperty(const Statement& make_prop_stmt);
-		Command AnalyzeMakeEnum(const Statement& make_enum_stmt);
-		Command AnalyzeMatch(const Statement& match_stmt);
-		Command AnalyzeAssignment(const Statement& assign_stmt);
-		Command AnalyzeCondition(const Statement& cond_stmt);
-		Command AnalyzeBlock(const Statement& block_stmt); 
+
+		VariableKind AnalyzeVarNameExpr(const Expression& varname_expr);
+		VariableKind AnalyzeArrayCallExpr(const Expression& array_call);
+		VariableKind AnalyzeLiterals(const Expression& any_literal_expr);
+		VariableKind AnalyzeStructFieldCallExpr(const Expression& field_call);
+		VariableKind AnalyzePropertyFieldCallExpr(const Expression& field_call, const std::string& active_option);
+		VariableKind AnalyzeFnCallExpr(const Expression& fn_call);
+		VariableKind AnalyzeBinopExpr(const Expression& binop_expr);
+		VariableKind AnalyzeUnaryExpr(const Expression& unary_expr);
+		
+		VariableKind AnalyzeInitListExpr(const Expression& init_list_expr);
+		VariableKind AnalyzeStructInitExpr(const Expression& struct_init_expr);
+
+		VariableKind AnalyzeExpression(const Expression& expr);
+		
+		std::vector <Command> AnalyzeVarInit(const Statement& var_init_stmt);
+		std::vector <Command> AnalyzeArrayInit(const Statement& array_init_stmt);
+		std::vector <Command> AnalyzeWhileLoop(const Statement& while_loop_stmt);
+		std::vector <Command> AnalyzeForLoop(const Statement& for_stmt);
+		std::vector <Command> AnalyzeMakeFunction(const Statement& make_fn_stmt);
+		std::vector <Command> AnalyzeMakeStruct(const Statement& make_struct_stmt);
+		std::vector <Command> AnalyzeMakeProperty(const Statement& make_prop_stmt);
+		std::vector <Command> AnalyzeMakeEnum(const Statement& make_enum_stmt);
+		std::vector <Command> AnalyzeMatch(const Statement& match_stmt);
+		std::vector <Command> AnalyzeAssignment(const Statement& assign_stmt);
+		std::vector <Command> AnalyzeCondition(const Statement& cond_stmt);
+		std::vector <Command> AnalyzeBlock(const Statement& block_stmt);
 		
 #pragma endregion
 
 	public:
-		Semantics() = delete;
 		Semantics(const Semantics&) = delete;
 		Semantics& operator=(const Semantics&) = delete;
 		Semantics(Semantics&&) noexcept = delete;
 		Semantics& operator=(Semantics&&) noexcept = delete;
 
-		explicit Semantics(Statement&& AST);
+		Semantics() = default;
 
-		std::vector <Command> AnalyzePrepareCommands();
+		std::vector <Command> AnalyzePrepareCommands(const Statement& AST);
 	};
 
 }

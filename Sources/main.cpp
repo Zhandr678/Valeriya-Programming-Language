@@ -42,8 +42,10 @@ int main(int argc, char* argv[])
 			)
 		);
 
+		val::Semantics s;
+
 		auto AST = parser.ConstructAST();
-		std::cout << AST.view_Block().statements(0).view_MakeStruct().inits(4).view_ArrayInit().type_info().view_VarInit().var_name();
+		s.AnalyzePrepareCommands(AST);
 	}
 	catch (const std::logic_error& e)
 	{

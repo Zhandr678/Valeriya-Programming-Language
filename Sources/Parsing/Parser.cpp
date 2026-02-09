@@ -8,7 +8,7 @@
 
 static bool CanBeTypeName(val::TokenLabel lbl)
 {
-	return lbl == val::TokenLabel::KW_INT || lbl == val::TokenLabel::KW_BOOL || lbl == val::TokenLabel::KW_STRING ||
+	return lbl == val::TokenLabel::KW_INT || lbl == val::TokenLabel::KW_UINT || lbl == val::TokenLabel::KW_BOOL || lbl == val::TokenLabel::KW_STRING ||
 		lbl == val::TokenLabel::KW_CHAR || lbl == val::TokenLabel::KW_DOUBLE || lbl == val::TokenLabel::IDENTIFIER;
 }
 
@@ -112,7 +112,10 @@ namespace val
 				stms.push_back(*st);
 			}
 			else if (auto st = AnalyzeInitalizationStatement()) {
-				stms.push_back(*st);
+				for (size_t i = 0; i < st->view_Block().size(); i++)
+				{
+					stms.push_back(st->view_Block().statements(i));
+				}
 			}
 			else if (auto st = AnalyzeReturnStatement()) {
 				stms.push_back(*st);
@@ -217,8 +220,8 @@ namespace val
 	std::optional<Expression> Parser::ParseExpression(TokenLabel flag1, TokenLabel flag2)
 	{
 		Token next_token = GetNextPeeked();
-		bool is_unary = false;
 
+		bool is_unary = false;
 		if (next_token.label == TokenLabel::SYM_NOT)
 		{
 			is_unary = true;
@@ -673,7 +676,27 @@ namespace val
 					next_token = GetNextPeeked();
 					continue;
 				}
-				else { throw ParserException("Expression MUST NOT Follow Expression", GetFileName(), ExprCallStmt, GetLine());; } // expression followed by expression
+				else { throw ParserException("Expression MUST NOT Follow Expression", GetFileName(), ExprCallStmt, GetLine()); } // expression followed by expression
+			}
+
+			else if (next_token.label == TokenLabel::LIT_NULL)
+			{
+				single_exprs.emplace_back(EmptyExpr);
+
+				next_token = GetNextPeeked();
+
+				if (next_token.label == flag1 || next_token.label == flag2)
+				{
+					next--;
+					break;
+				}
+				else if (IsBinaryOperator(next_token.label))
+				{
+					operators.push_back(next_token);
+					next_token = GetNextPeeked();
+					continue;
+				}
+				else { throw ParserException("Expression MUST NOT Follow Expression", GetFileName(), ExprCallStmt, GetLine()); } // expression followed by expression
 			}
 
 			else if (next_token.label == TokenLabel::IDENTIFIER)
@@ -712,7 +735,7 @@ namespace val
 							break;
 						}
 						else {
-							throw ParserException("Expected Closing '}'", GetFileName(), ExprCallStmt, GetLine());;
+							throw ParserException("Expected Closing '}'", GetFileName(), ExprCallStmt, GetLine());
 						}
 					}
 						
@@ -741,7 +764,7 @@ namespace val
 						next_token = GetNextPeeked();
 						continue;
 					}
-					else { throw ParserException("Expression MUST NOT Follow Expression", GetFileName(), ExprCallStmt, GetLine());; } // expression followed by expression
+					else { throw ParserException("Expression MUST NOT Follow Expression", GetFileName(), ExprCallStmt, GetLine()); } // expression followed by expression
 				}
 				else if (next_token.label == TokenLabel::SYM_LBRACKET)
 				{
@@ -1122,7 +1145,7 @@ namespace val
 			{
 				Statement array_init(VarInitStmt, Expression(EmptyExpr), varname_token.attr, type_token.attr);
 
-				while (next_token.label == TokenLabel::SYM_LBRACKET)
+				if (next_token.label == TokenLabel::SYM_LBRACKET) // If Someday implement multidim arrays: if -> while
 				{
 					auto size_expr = ParseExpression(_Dupl(TokenLabel::SYM_RBRACKET));
 
@@ -1468,11 +1491,13 @@ namespace val
 
 		while (next_token.label != TokenLabel::SYM_RPAR)
 		{
-			Statement arg(FnArgsStmt, Expression(EmptyExpr), "", false, "");
+			// Statement arg(FnArgsStmt, Expression(EmptyExpr), "", false, "");
+			bool is_inout = false;
+			std::string type_name;
 
 			if (next_token.label == TokenLabel::KW_INOUT)
 			{
-				arg.view_FnArgs().update_is_inout(true);
+				is_inout = true;
 				next_token = GetNextPeeked();
 			}
 
@@ -1481,17 +1506,64 @@ namespace val
 				throw ParserException("Not a Type Name in a Function's Param List", GetFileName(), MakeFunctionStmt, GetLine()); // Not a Type name in function's param list
 			}
 
-			arg.view_FnArgs().update_type_name(std::move(next_token.attr));
+			type_name = std::move(next_token.attr);
 
 			next_token = GetNextPeeked();
+
+			std::vector <std::pair <bool, int>> array_info;
+
+			while (next_token.label == TokenLabel::SYM_LBRACKET)
+			{
+				next_token = GetNextPeeked();
+				if (next_token.label == TokenLabel::SYM_RBRACKET)
+				{
+					array_info.emplace_back(true, 0);
+					next_token = GetNextPeeked();
+					if (next_token.label == TokenLabel::SYM_LBRACKET)
+					{
+						continue;
+					}
+					else if (next_token.label == TokenLabel::IDENTIFIER)
+					{
+						break;
+					}
+					else {
+						throw ParserException("Bad Name for a Function Param", GetFileName(), MakeFunctionStmt, GetLine());
+					}
+				}
+				else if (next_token.label == TokenLabel::LIT_INTEGER)
+				{
+					array_info.emplace_back(false, std::stoi(next_token.attr));
+					if (GetNextPeeked().label != TokenLabel::SYM_RBRACKET)
+					{
+						throw ParserException("Expected Closing ']'", GetFileName(), MakeFunctionStmt, GetLine());
+					}
+					next_token = GetNextPeeked();
+					if (next_token.label == TokenLabel::SYM_LBRACKET)
+					{
+						continue;
+					}
+					else if (next_token.label == TokenLabel::IDENTIFIER)
+					{
+						break;
+					}
+					else {
+						throw ParserException("Bad Name for a Function Param", GetFileName(), MakeFunctionStmt, GetLine());
+					}
+				}
+				else {
+					throw ParserException("Expected Integer for Array Size", GetFileName(), MakeFunctionStmt, GetLine());
+				}
+			}
 
 			if (next_token.label != TokenLabel::IDENTIFIER)
 			{
 				throw ParserException("Bad Name For a Function Param", GetFileName(), MakeFunctionStmt, GetLine()); // Expected name after type
 			}
 
-			arg.view_FnArgs().update_var_name(std::move(next_token.attr));
-			
+			std::string var_name = std::move(next_token.attr);
+			Expression default_expr(EmptyExpr);
+
 			next_token = GetNextPeeked();
 			if (next_token.label == TokenLabel::SYM_EQUAL)
 			{
@@ -1501,10 +1573,10 @@ namespace val
 					throw ParserException("Expected Expression", GetFileName(), MakeFunctionStmt, GetLine()); // expected expression after =
 				}
 
-				arg.view_FnArgs().update_default_expr(*expr);
+				default_expr = *expr;
 			}
 
-			args.push_back(std::move(arg));
+			args.emplace_back(FnArgsStmt, default_expr, array_info.begin(), array_info.end(), type_name, is_inout, var_name, array_info.empty() ? false : true);
 			
 			if (next_token.label == TokenLabel::SYM_COMMA) {
 				next_token = GetNextPeeked();

@@ -44,6 +44,7 @@ val::Statement::Statement( const Statement& from )
       tvm::init( get<0> ( repr. _fld08. loc ), get<0> ( from. repr. _fld08. loc ) );
       tvm::init( get<1> ( repr. _fld08. loc ), get<1> ( from. repr. _fld08. loc ) );
       tvm::init( get<2> ( repr. _fld08. loc ), get<2> ( from. repr. _fld08. loc ) );
+      tvm::init( get<3> ( repr. _fld08. loc ), get<3> ( from. repr. _fld08. loc ) );
       repr. _fld08. heap = takeshare( from. repr. _fld08. heap );
       break;
    case ForLoopStmt:
@@ -119,6 +120,8 @@ val::Statement::Statement( Statement&& from ) noexcept
       tvm::destroy( get<1> ( from. repr. _fld08. loc ) );
       tvm::init( get<2> ( repr. _fld08. loc ), std::move( get<2> ( from. repr. _fld08. loc ) ) );
       tvm::destroy( get<2> ( from. repr. _fld08. loc ) );
+      tvm::init( get<3> ( repr. _fld08. loc ), std::move( get<3> ( from. repr. _fld08. loc ) ) );
+      tvm::destroy( get<3> ( from. repr. _fld08. loc ) );
       repr. _fld08. heap = from. repr. _fld08. heap;
       break;
    case ForLoopStmt:
@@ -257,6 +260,7 @@ const val::Statement & val::Statement::operator = ( const Statement& from )
       tvm::init( get<0> ( repr. _fld08. loc ), get<0> ( from. repr. _fld08. loc ) );
       tvm::init( get<1> ( repr. _fld08. loc ), get<1> ( from. repr. _fld08. loc ) );
       tvm::init( get<2> ( repr. _fld08. loc ), get<2> ( from. repr. _fld08. loc ) );
+      tvm::init( get<3> ( repr. _fld08. loc ), get<3> ( from. repr. _fld08. loc ) );
       repr. _fld08. heap = from. repr. _fld08. heap;
       break;
    case ForLoopStmt:
@@ -342,6 +346,8 @@ const val::Statement & val::Statement::operator = ( Statement&& from ) noexcept
          tvm::destroy( get<1> ( from. repr. _fld08. loc ) );
          tvm::assign( get<2> ( repr. _fld08. loc ), std::move( get<2> ( from. repr. _fld08. loc ) ) );
          tvm::destroy( get<2> ( from. repr. _fld08. loc ) );
+         tvm::assign( get<3> ( repr. _fld08. loc ), std::move( get<3> ( from. repr. _fld08. loc ) ) );
+         tvm::destroy( get<3> ( from. repr. _fld08. loc ) );
          dropshare( repr. _fld08. heap );
          repr. _fld08. heap = from. repr. _fld08. heap;
          break;
@@ -441,6 +447,7 @@ val::Statement::~Statement( ) noexcept
       tvm::destroy( get<0> ( repr. _fld08. loc ) );
       tvm::destroy( get<1> ( repr. _fld08. loc ) );
       tvm::destroy( get<2> ( repr. _fld08. loc ) );
+      tvm::destroy( get<3> ( repr. _fld08. loc ) );
       dropshare( repr. _fld08. heap );
       break;
    case ForLoopStmt:
@@ -522,6 +529,8 @@ bool val::Statement::very_equal_to( const Statement & other ) const
       if( tvm::distinct( get<1> ( repr. _fld08. loc ), get<1> ( other. repr. _fld08. loc ) ))
          return false;
       if( tvm::distinct( get<2> ( repr. _fld08. loc ), get<2> ( other. repr. _fld08. loc ) ))
+         return false;
+      if( tvm::distinct( get<3> ( repr. _fld08. loc ), get<3> ( other. repr. _fld08. loc ) ))
          return false;
       if( repr. _fld08. heap != other. repr. _fld08. heap )
          return false;

@@ -32,13 +32,12 @@ namespace val
 		else if (strtype == "bool") { return PrimitiveType::BOOL; }
 		else if (strtype == "char") { return PrimitiveType::CHAR; }
 		else if (strtype == "string") { return PrimitiveType::STRING; }
-		else { throw; }
+		else { return PrimitiveType::VOID; }
 	}
 
 	bool IsPrimitive(const std::string& strtype)
 	{
 		return strtype == "int" || strtype == "uint" || strtype == "double" || strtype == "bool" ||
-			strtype == "char" || strtype == "string";
+			strtype == "char" || strtype == "string" || strtype == "void";
 	}
-
 }

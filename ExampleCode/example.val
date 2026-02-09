@@ -1,4 +1,9 @@
-struct A
+int i = 5 ^ 5;
+
+int j = i;
+double b = 5.2;
+
+while (i != j)
 {
-	int n = -c(x, y)[50].d;
+	
 }

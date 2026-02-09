@@ -4,18 +4,17 @@
 #include <string>
 #include <variant>
 #include <memory>
+#include <unordered_map>
+#include <unordered_set>
 
 namespace val
 {
-	enum class PrimitiveType { INT, UINT, DOUBLE, BOOL, CHAR, STRING };
 
-	std::string PrimToStr(const PrimitiveType& type);
-	PrimitiveType StrToPrim(const std::string& strtype);
-	bool IsPrimitive(const std::string& strtype);
+#pragma region("Variable Structs")
 
-	class ObjectKind;
-	class ArrayKind;
-	using VariableKind = std::variant <std::unique_ptr <ObjectKind>, std::unique_ptr <ArrayKind>>;
+	struct ObjectKind;
+	struct ArrayKind;
+	using VariableKind = std::variant <ObjectKind, ArrayKind>;
 
 	struct ObjectKind
 	{
@@ -26,43 +25,60 @@ namespace val
 	struct ArrayKind
 	{
 		std::string valid_size_expression; // Directly translatable to C
-		bool is_dynamic;
-		VariableKind of_kind;
+		bool is_dynamic{0};
+		ObjectKind of_kind;
+	};
+
+#pragma endregion
+
+#pragma region("Type Structs")
+
+	enum class PrimitiveType { INT, UINT, DOUBLE, BOOL, CHAR, STRING, VOID };
+
+	std::string PrimToStr(const PrimitiveType& type);
+	PrimitiveType StrToPrim(const std::string& strtype);
+	bool IsPrimitive(const std::string& strtype);
+
+	struct ArrayType
+	{
+		size_t dim;
+		std::string type_name;
 	};
 
 	struct StructType
 	{
 		std::string name;
-
-		struct Field
-		{
-			std::string field_name;
-			VariableKind kind_of_field;
-		};
-
-		std::vector <Field> fields;
+		std::vector <std::string> order_fields;
+		std::unordered_map <std::string, VariableKind> fields;
 	};
 
 	struct EnumType
 	{
 		std::string name;
-		std::vector <std::string> enum_variants;
+		std::unordered_set <std::string> enum_variants;
 	};
 
 	struct PropertyType
 	{
 		std::string name;
-
-		struct Option
-		{
-			std::string opt_name;
-			StructType opt_fields;
-		};
-
-		std::vector <Option> options;
+		std::unordered_map <std::string, StructType> options;
 	};
 
-	using UnknownType = std::monostate;
-	using TypeClass = std::variant <PrimitiveType, StructType, PropertyType, EnumType, UnknownType>;
-	using CustomTypeClass = std::variant <StructType, PropertyType, EnumType, UnknownType>;
+	struct FnTable
+	{
+		std::string name;
+		std::string ret_type_name;
+		struct Param
+		{
+			bool is_inout{0};
+			VariableKind kind;
+		};
+		std::unordered_map <std::string, Param> param_symbol_table;
+		std::vector <std::string> order_param;
+	};
+
+	using AnyType = std::monostate;
+	using TypeClass = std::variant <PrimitiveType, StructType, PropertyType, EnumType, ArrayType, AnyType>;
+
+#pragma endregion
 }

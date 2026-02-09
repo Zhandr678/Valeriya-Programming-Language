@@ -45,9 +45,9 @@ namespace val {
       using _loc07 = tvm::unit;
       using _scal07 = Expression;
       using _rep07 = tvm::unit;
-      using _loc08 = std::tuple<std::string,bool,std::string>;
+      using _loc08 = std::tuple<std::string,bool,std::string,bool>;
       using _scal08 = Expression;
-      using _rep08 = tvm::unit;
+      using _rep08 = std::pair<bool, int>;
       using _loc09 = tvm::unit;
       using _scal09 = std::tuple<Statement,Expression,Statement,Statement>;
       using _rep09 = tvm::unit;
@@ -249,7 +249,8 @@ namespace val {
          repr. _fld07. heap = takeshare( tvm::constr_scalar< _scal07 > ( _xx00 ));
       }
 
-      Statement( selector sel, const Expression & _xx00, const std::string & _xx01, const bool & _xx02, const std::string & _xx03 )
+      template< tvm::const_iterator< _rep08 > It >
+      Statement( selector sel, const Expression & _xx00, It begin, It end, const std::string & _xx03, const bool & _xx04, const std::string & _xx05, const bool & _xx06 )
          : _ssss( sel )
       {
          if constexpr( check )
@@ -262,11 +263,16 @@ namespace val {
                throw std::invalid_argument( "wrong selector for constructor" );
             }
          }
-         tvm::init( get<0> ( repr. _fld08. loc ), _xx01 );
-         tvm::init( get<1> ( repr. _fld08. loc ), _xx02 );
-         tvm::init( get<2> ( repr. _fld08. loc ), _xx03 );
-         repr. _fld08. heap = takeshare( tvm::constr_scalar< _scal08 > ( _xx00 ));
+         tvm::init( get<0> ( repr. _fld08. loc ), _xx03 );
+         tvm::init( get<1> ( repr. _fld08. loc ), _xx04 );
+         tvm::init( get<2> ( repr. _fld08. loc ), _xx05 );
+         tvm::init( get<3> ( repr. _fld08. loc ), _xx06 );
+         repr. _fld08. heap = takeshare( tvm::constr_scalar_repeated< _scal08, _rep08 > ( _xx00, begin, end ));
       }
+
+      Statement( selector sel, const Expression & _xx00, std::initializer_list< _rep08 > repeated, const std::string & _xx02, const bool & _xx03, const std::string & _xx04, const bool & _xx05 )
+         : Statement( sel, _xx00, repeated. begin( ), repeated. end( ), _xx02, _xx03, _xx04, _xx05 )
+      { }
 
       Statement( selector sel, const Statement & _xx00, const Expression & _xx01, const Statement & _xx02, const Statement & _xx03 )
          : _ssss( sel )
@@ -1147,8 +1153,12 @@ namespace val {
          const std::string & type_name( ) const { return get<0> ( _xxxx -> repr. _fld08. loc ); }
          const bool & is_inout( ) const { return get<1> ( _xxxx -> repr. _fld08. loc ); }
          const std::string & var_name( ) const { return get<2> ( _xxxx -> repr. _fld08. loc ); }
+         const bool & is_array( ) const { return get<3> ( _xxxx -> repr. _fld08. loc ); }
 
          const Expression & default_expr( ) const { return _xxxx -> repr. _fld08. heap -> scal; }
+         size_t size( ) const { return _xxxx -> repr. _fld08. heap -> size( ); }
+         const std::pair<bool, int> & array_info( size_t _iiii ) const
+            { return _xxxx -> repr. _fld08. heap -> begin( ) [ _iiii ]; }
       };
 
       const_FnArgs view_FnArgs( ) const
@@ -1176,6 +1186,9 @@ namespace val {
          std::string & var_name( ) const { return get<2> ( _xxxx -> repr. _fld08. loc ); }
          std::string extr_var_name( ) const { return std::move( get<2> ( _xxxx -> repr. _fld08. loc ) ); }
          void update_var_name( const std::string & from ) const { get<2> ( _xxxx -> repr. _fld08. loc ) = from; }
+         bool & is_array( ) const { return get<3> ( _xxxx -> repr. _fld08. loc ); }
+         bool extr_is_array( ) const { return std::move( get<3> ( _xxxx -> repr. _fld08. loc ) ); }
+         void update_is_array( const bool & from ) const { get<3> ( _xxxx -> repr. _fld08. loc ) = from; }
 
          const Expression & default_expr( ) const { return _xxxx -> repr. _fld08. heap -> scal; }
          Expression extr_default_expr( ) const {
@@ -1190,6 +1203,30 @@ namespace val {
             {
                _xxxx -> repr. _fld08. heap = takeshare( replacebywritable( _xxxx -> repr. _fld08. heap ));
                _xxxx -> repr. _fld08. heap -> scal = repl;
+            }
+         }
+
+         size_t size( ) const { return _xxxx -> repr. _fld08. heap -> size( ); }
+         void push_back( const std::pair<bool, int> & xx00 ) const
+         {
+            _xxxx -> repr. _fld08. heap = tvm::push_back( _xxxx -> repr. _fld08. heap, xx00 );
+         }
+         void pop_back( ) const { _xxxx -> repr. _fld08. heap = tvm::pop_back( _xxxx -> repr. _fld08. heap ); }
+         const std::pair<bool, int>& array_info( size_t _iiii ) const
+            { return _xxxx -> repr. _fld08. heap -> begin( ) [ _iiii ]; }
+         std::pair<bool, int> extr_array_info( size_t _iiii ) const
+         {
+            if( iswritable( _xxxx -> repr. _fld08. heap ))
+               return std::move( _xxxx -> repr. _fld08. heap -> begin( ) [ _iiii ] );
+            else
+               return _xxxx -> repr. _fld08. heap -> begin( ) [ _iiii ];
+         }
+         void update_array_info( size_t _iiii, const std::pair<bool, int> & repl ) const
+         {
+            if( tvm::distinct( _xxxx -> repr. _fld08. heap -> begin( ) [ _iiii ], repl ))
+            {
+               _xxxx -> repr. _fld08. heap = takeshare( replacebywritable( _xxxx -> repr. _fld08. heap ));
+               _xxxx -> repr. _fld08. heap -> begin( ) [ _iiii ] = repl;
             }
          }
       };

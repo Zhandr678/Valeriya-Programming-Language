@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.18)
 
-project(Valeria LANGUAGES CXX)
+project(Valeriya LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -13,17 +13,17 @@ file(GLOB_RECURSE SRC_FILES
 )
 
 # Define the executable
-add_executable(Valeria_target ${SRC_FILES})
+add_executable(Valeriya_target ${SRC_FILES})
 
 # Function to recursively add include directories
 function(add_include_dirs base_dir)
     file(GLOB children RELATIVE ${base_dir} ${base_dir}/*)
     foreach(child ${children})
         if(IS_DIRECTORY ${base_dir}/${child})
-            target_include_directories(Valeria_target PRIVATE ${base_dir}/${child})
+            target_include_directories(Valeriya_target PRIVATE ${base_dir}/${child})
         endif()
     endforeach()
-    target_include_directories(Valeria_target PRIVATE ${base_dir})
+    target_include_directories(Valeriya_target PRIVATE ${base_dir})
 endfunction()
 
 # Add include directories for Sources
@@ -31,7 +31,7 @@ add_include_dirs(${CMAKE_CURRENT_SOURCE_DIR}/Sources)
 add_include_dirs(${CMAKE_CURRENT_SOURCE_DIR}/Dependencies)
 
 # Output configuration
-set_target_properties(Valeria_target PROPERTIES
+set_target_properties(Valeriya_target PROPERTIES
     OUTPUT_NAME "vri"
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
 )

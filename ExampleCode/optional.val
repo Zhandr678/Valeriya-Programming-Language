@@ -1,30 +1,64 @@
-property Optional <T>
+int j = 5;
+double i = j;
+
+struct Vector
 {
-	has_value: { T val; }
-	nullopt  : { }
+	int buffer[];
+	uint size;
 }
 
-property Expected <T, V>
+fn PushBack(inout Vector v, int x) -> void
 {
-	expected  : { T val; }
-	unexpected: { V ue_val; }
+	v.buffer[size + 1] = x;
+	v.size = v.size + 1;
 }
 
-fn value_or <T> (Optional <T> opt_val, T or_val) -> T
+fn Size(Vector v) -> uint
 {
-	match (opt_val)
+	return v.size;
+}
+
+fn PopBack(inout Vector v) -> void
+{
+	v.size = v.size - 1;
+}
+
+fn At(Vector v, uint i) -> int
+{
+	return v.buffer[i];
+}
+
+property prop
+{
+	opt1: { int x; }
+	opt2: { double d; }
+	opt3: { string s; }
+}
+
+prop p;
+
+// Here you dereference 'p'
+match(p)
+{
+	case opt1 -> { p.x; }
+}
+
+struct ListNode
+{
+	ListNode next;
+	int val;
+}
+
+int i = null;
+ListNode head = ListNode{ null, 1 };
+
+head.next = ListNode { ListNode{ null, 3 }, 2 };
+
+fn Traverse(ListNode head) -> void
+{
+	while (head != null)
 	{
-		case has_value -> { return val; }
-		case nullopt   -> { return or_val; }
+		printf(head.val);
+		head = head.next;
 	}
 }
-
-fn div(double a, double b) -> Expected <double, str>
-{
-	if (b == 0) { return unexpected("NaN"); }
-
-	return expected(a / b);
-}
-
-auto d = div(5.0, 0.0);
-
