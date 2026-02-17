@@ -13,7 +13,7 @@ namespace val
 	};
 
 	template <typename DerivedCommand>
-		requires HasConvertToC <DerivedCommand>
+	requires HasConvertToC <DerivedCommand>
 	class ICommand
 	{
 	private:

@@ -1,9 +1,11 @@
-int i = 5 ^ 5;
+struct A
+{
+	int a = 4;
+}
 
-int j = i;
-double b = 5.2;
-
-while (i != j)
+fn f() -> A
 {
 	
 }
+
+int i = A{5}.a;

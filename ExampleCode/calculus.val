@@ -31,7 +31,7 @@ fn diff(Expr e, str var) -> Expr
         case Const -> { return Const(0); }
 
         case Var -> {
-            return Const(name == var ? 1 : 0);
+            return Const();
         }
 
         case Add -> {

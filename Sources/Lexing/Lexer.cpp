@@ -62,6 +62,9 @@ namespace val
 		bool exp = false;
 		bool prev_was_exp = false;
 
+		// ---- Leading zero check ----
+		bool leading_zero = (_LastChar == '0');
+
 		token_size++;
 
 		while (Has(token_size + 1))
@@ -71,6 +74,14 @@ namespace val
 
 			if (std::isdigit(c))
 			{
+				// If number started with 0 and we now see another digit
+				// before dot or exponent → invalid
+				if (leading_zero && !dot && !exp)
+				{
+					Commit(token_size);
+					throw LexerException("Leading zeros are not allowed", _CurLocation);
+				}
+
 				prev_was_exp = false;
 			}
 			else if (c == '.' && !exp)
@@ -80,6 +91,7 @@ namespace val
 					Commit(token_size);
 					throw LexerException("Multiple dots in number", _CurLocation);
 				}
+
 				dot = true;
 				prev_was_exp = false;
 			}
@@ -90,6 +102,7 @@ namespace val
 					Commit(token_size);
 					throw LexerException("Multiple exponent symbols", _CurLocation);
 				}
+
 				exp = true;
 				prev_was_exp = true;
 			}
@@ -115,12 +128,15 @@ namespace val
 			throw LexerException("Exponent has no digits", _CurLocation);
 		}
 
-		TokenLabel label = (!dot && !exp) ? TokenLabel::LIT_INTEGER : TokenLabel::LIT_NUMBER;
+		TokenLabel label = (!dot && !exp)
+			? TokenLabel::LIT_INTEGER
+			: TokenLabel::LIT_NUMBER;
 
 		Token tok{ label, std::string(_CurToken), _CurLocation };
 		Commit(token_size);
 		return tok;
 	}
+
 
 
 	std::optional<Token> Lexer::AnalyzeLiterals()
