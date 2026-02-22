@@ -1,11 +1,36 @@
-struct A
+// mylang.ext:
+
+// Assume we are writing a game engine script
+
+property RotateBy
 {
-	int a = 4;
+	Angle: { double angle; }
+	Radian: { double rads; }
+	Quaternion: { double a, b, c, d; }
 }
 
-fn f() -> A
+property Command
 {
-	
+	Rotate: { RotateBy r; }
+	Move: { double dx, dy; }
+	Stop: {}
 }
 
-int i = A{5}.a;
+fn exec(Command c) -> void
+{
+	match(c) 
+	{
+		case Rotate -> {
+			match (c.r)
+			{
+				case Angle -> { return; }
+				case Radian -> { /* rotate radians (c.r.rads) impl */ }
+				case Quaternion -> { /* rotate quaternion (c.r.a, c.r.b, c.r.c, c.r.d) impl */ }
+			}
+		}
+		case Move -> {
+			/* moving (c.dx, c.dy) impl */	
+		}
+		case Stop -> { /* external function */ halt(); }
+	}
+}

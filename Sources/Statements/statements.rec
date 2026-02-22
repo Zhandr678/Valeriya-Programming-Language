@@ -58,90 +58,102 @@
 %define Statement (EmptyStmt)
 
 %option Empty { EmptyStmt } =>
+    # line : int
 
 %option Block { BlockOfStmt } =>
-    [ statements : Statement ]
+    [ statements : Statement ],
+    # line : int
 
 %option ExprCall { ExprCallStmt } =>
-    expr : Expression
+    expr : Expression,
+    # line : int
 
 // ASSERT 2nd Expression is VarName or FieldCall or ArrayIndex
 %option Assignment { AssignmentStmt } =>
     expr : Expression,
-    dest : Expression
+    dest : Expression,
+    # line : int
 
 // ASSERT Statement is VarInit (1D array) or ArrayInit (2D, 3D, ... arrays)
 %option ArrayInit { ArrayInitStmt } =>
     init_expr : Expression,
     type_info : Statement,
     alloc_size : Expression,
-    # is_dynamic : bool
+    # is_dynamic : bool, line : int
 
 %option VarInit { VarInitStmt } =>
     init_expr : Expression, 
-    # var_name : std::string, type_name : std::string
+    # var_name : std::string, type_name : std::string, line : int
 
 // ASSERT Statement is VarInit
 %option MakeStruct { MakeStructStmt } =>
     [ inits : Statement ],
-    # struct_name : std::string
+    # struct_name : std::string, line : int
 
 %option MakeEnum { MakeEnumStmt } =>
     [ enum_variants : std::string ],
-    # enum_name : std::string
+    # enum_name : std::string, line : int
 
 %option FnArgs { FnArgsStmt } =>
     default_expr : Expression,
     [ array_info : std::pair <bool, int> ],
-    # type_name : std::string, is_inout : bool, var_name : std::string, is_array : bool
+    # type_name : std::string, is_inout : bool, var_name : std::string, is_array : bool, line : int
 
 // ASSERT 1st Statement is Block, ASSERT 2nd Statement is FnArgs
 %option MakeFunction { MakeFunctionStmt } =>
     fn_body : Statement,
     [ params : Statement ],
-    # fn_name : std::string, ret_type_name : std::string
+    # fn_name : std::string, ret_type_name : std::string, is_array : bool, line : int
 
 // ASSERT Statement is MakeStruct
 %option MakeProperty { MakePropertyStmt } =>
     [ opts : Statement ],
-    # prop_name : std::string
+    # prop_name : std::string, line : int
 
 // ASSERT Statement is Block
 %option ElifCondition { ElifConditionStmt } =>
     elif_cond : Expression,
-    elif_body : Statement
+    elif_body : Statement, 
+    # line : int
 
 // ASSERT 1st Statement is Block, ASSERT 2nd Statement is Block, ASSERT 3rd Statement is ElifCondition
 %option Condition { ConditionStmt } =>
     if_cond : Expression,
     if_body : Statement,
     else_body : Statement,
-    [ elif_stmt : Statement ]
+    [ elif_stmt : Statement ],
+    # line : int
 
 // ASSERT 2nd Statement is Block
 %option ForLoop { ForLoopStmt } =>
     init_part : Statement, 
     check : Expression, 
     final_expr : Statement,
-    forloop_body : Statement
+    forloop_body : Statement,
+    # line : int
     
 // ASSERT Statement is Block
 %option WhileLoop { WhileLoopStmt } =>
     cond : Expression,
-    whileloop_body : Statement
+    whileloop_body : Statement,
+    # line : int
     
 %option Return { ReturnStmt } =>
-    return_expr : Expression
+    return_expr : Expression,
+    # line : int
 
 %option Break { BreakStmt } =>
+    # line : int
 
 %option Continue { ContinueStmt } =>
+    # line : int
 
 %option CaseClause { CaseClauseStmt } =>
     case_body : Statement,
     case_expr : Expression,
-    # is_wildcard : bool
+    # is_wildcard : bool, line : int
 
 %option Match { MatchStmt } => 
     matched_expr : Expression,
-    [ cases : Statement ]
+    [ cases : Statement ],
+    # line : int

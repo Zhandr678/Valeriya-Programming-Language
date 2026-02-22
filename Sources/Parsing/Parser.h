@@ -35,7 +35,7 @@ namespace val
 		std::optional <Statement> AnalyzeLoopCommands();
 		std::optional <Statement> ParseForLoopFinalStatement();
 		
-		std::optional <Expression> ParseExpression(TokenLabel flag1, TokenLabel flag2);
+		std::optional <Expression> ParseExpression(const std::vector <TokenLabel>& flags);
 
 	public:
 		explicit Parser(Lexer&& lexer);

@@ -21,49 +21,49 @@ namespace val {
    private:
       selector _ssss;
 
-      using _loc00 = bool;
+      using _loc00 = std::pair<bool,int>;
       using _scal00 = std::tuple<Expression,Statement,Expression>;
       using _rep00 = tvm::unit;
-      using _loc01 = tvm::unit;
+      using _loc01 = int;
       using _scal01 = std::pair<Expression,Expression>;
       using _rep01 = tvm::unit;
-      using _loc02 = tvm::unit;
+      using _loc02 = int;
       using _scal02 = tvm::unit;
       using _rep02 = Statement;
-      using _loc03 = tvm::unit;
+      using _loc03 = int;
       using _scal03 = tvm::unit;
       using _rep03 = tvm::unit;
-      using _loc04 = bool;
+      using _loc04 = std::pair<bool,int>;
       using _scal04 = std::pair<Statement,Expression>;
       using _rep04 = tvm::unit;
-      using _loc05 = tvm::unit;
+      using _loc05 = int;
       using _scal05 = std::tuple<Expression,Statement,Statement>;
       using _rep05 = Statement;
-      using _loc06 = tvm::unit;
+      using _loc06 = int;
       using _scal06 = std::pair<Expression,Statement>;
       using _rep06 = tvm::unit;
-      using _loc07 = tvm::unit;
+      using _loc07 = int;
       using _scal07 = Expression;
       using _rep07 = tvm::unit;
-      using _loc08 = std::tuple<std::string,bool,std::string,bool>;
+      using _loc08 = std::tuple<std::string,bool,std::string,bool,int>;
       using _scal08 = Expression;
       using _rep08 = std::pair<bool, int>;
-      using _loc09 = tvm::unit;
+      using _loc09 = int;
       using _scal09 = std::tuple<Statement,Expression,Statement,Statement>;
       using _rep09 = tvm::unit;
-      using _loc10 = std::string;
+      using _loc10 = std::pair<std::string,int>;
       using _scal10 = tvm::unit;
       using _rep10 = std::string;
-      using _loc11 = std::pair<std::string,std::string>;
+      using _loc11 = std::tuple<std::string,std::string,bool,int>;
       using _scal11 = Statement;
       using _rep11 = Statement;
-      using _loc12 = std::string;
+      using _loc12 = std::pair<std::string,int>;
       using _scal12 = tvm::unit;
       using _rep12 = Statement;
-      using _loc13 = tvm::unit;
+      using _loc13 = int;
       using _scal13 = Expression;
       using _rep13 = Statement;
-      using _loc14 = std::pair<std::string,std::string>;
+      using _loc14 = std::tuple<std::string,std::string,int>;
       using _scal14 = Expression;
       using _rep14 = tvm::unit;
 
@@ -106,7 +106,7 @@ namespace val {
       bool very_equal_to( const Statement& ) const;
       void printstate( std::ostream& out ) const;
       
-      Statement( selector sel, const Expression & _xx00, const Statement & _xx01, const Expression & _xx02, const bool & _xx03 )
+      Statement( selector sel, const Expression & _xx00, const Statement & _xx01, const Expression & _xx02, const bool & _xx03, const int & _xx04 )
          : _ssss( sel )
       {
          if constexpr( check )
@@ -119,11 +119,12 @@ namespace val {
                throw std::invalid_argument( "wrong selector for constructor" );
             }
          }
-         tvm::init( repr. _fld00. loc, _xx03 );
+         tvm::init( repr. _fld00. loc. first, _xx03 );
+         tvm::init( repr. _fld00. loc. second, _xx04 );
          repr. _fld00. heap = takeshare( tvm::constr_scalar< _scal00 > ( std::tuple( _xx00, _xx01, _xx02 ) ));
       }
 
-      Statement( selector sel, const Expression & _xx00, const Expression & _xx01 )
+      Statement( selector sel, const Expression & _xx00, const Expression & _xx01, const int & _xx02 )
          : _ssss( sel )
       {
          if constexpr( check )
@@ -136,11 +137,12 @@ namespace val {
                throw std::invalid_argument( "wrong selector for constructor" );
             }
          }
+         tvm::init( repr. _fld01. loc, _xx02 );
          repr. _fld01. heap = takeshare( tvm::constr_scalar< _scal01 > ( std::pair( _xx00, _xx01 ) ));
       }
 
       template< tvm::const_iterator< _rep02 > It >
-      Statement( selector sel, It begin, It end )
+      Statement( selector sel, It begin, It end, const int & _xx02 )
          : _ssss( sel )
       {
          if constexpr( check )
@@ -153,14 +155,15 @@ namespace val {
                throw std::invalid_argument( "wrong selector for constructor" );
             }
          }
+         tvm::init( repr. _fld02. loc, _xx02 );
          repr. _fld02. heap = takeshare( tvm::constr_scalar_repeated< _scal02, _rep02 > ( tvm::unit( ), begin, end ));
       }
 
-      Statement( selector sel, std::initializer_list< _rep02 > repeated )
-         : Statement( sel, repeated. begin( ), repeated. end( ) )
+      Statement( selector sel, std::initializer_list< _rep02 > repeated, const int & _xx01 )
+         : Statement( sel, repeated. begin( ), repeated. end( ), _xx01 )
       { }
 
-      Statement( selector sel )
+      Statement( selector sel, const int & _xx00 )
          : _ssss( sel )
       {
          if constexpr( check )
@@ -175,9 +178,10 @@ namespace val {
                throw std::invalid_argument( "wrong selector for constructor" );
             }
          }
+         tvm::init( repr. _fld03. loc, _xx00 );
       }
 
-      Statement( selector sel, const Statement & _xx00, const Expression & _xx01, const bool & _xx02 )
+      Statement( selector sel, const Statement & _xx00, const Expression & _xx01, const bool & _xx02, const int & _xx03 )
          : _ssss( sel )
       {
          if constexpr( check )
@@ -190,12 +194,13 @@ namespace val {
                throw std::invalid_argument( "wrong selector for constructor" );
             }
          }
-         tvm::init( repr. _fld04. loc, _xx02 );
+         tvm::init( repr. _fld04. loc. first, _xx02 );
+         tvm::init( repr. _fld04. loc. second, _xx03 );
          repr. _fld04. heap = takeshare( tvm::constr_scalar< _scal04 > ( std::pair( _xx00, _xx01 ) ));
       }
 
       template< tvm::const_iterator< _rep05 > It >
-      Statement( selector sel, const Expression & _xx00, const Statement & _xx01, const Statement & _xx02, It begin, It end )
+      Statement( selector sel, const Expression & _xx00, const Statement & _xx01, const Statement & _xx02, It begin, It end, const int & _xx05 )
          : _ssss( sel )
       {
          if constexpr( check )
@@ -208,14 +213,15 @@ namespace val {
                throw std::invalid_argument( "wrong selector for constructor" );
             }
          }
+         tvm::init( repr. _fld05. loc, _xx05 );
          repr. _fld05. heap = takeshare( tvm::constr_scalar_repeated< _scal05, _rep05 > ( std::tuple( _xx00, _xx01, _xx02 ), begin, end ));
       }
 
-      Statement( selector sel, const Expression & _xx00, const Statement & _xx01, const Statement & _xx02, std::initializer_list< _rep05 > repeated )
-         : Statement( sel, _xx00, _xx01, _xx02, repeated. begin( ), repeated. end( ) )
+      Statement( selector sel, const Expression & _xx00, const Statement & _xx01, const Statement & _xx02, std::initializer_list< _rep05 > repeated, const int & _xx04 )
+         : Statement( sel, _xx00, _xx01, _xx02, repeated. begin( ), repeated. end( ), _xx04 )
       { }
 
-      Statement( selector sel, const Expression & _xx00, const Statement & _xx01 )
+      Statement( selector sel, const Expression & _xx00, const Statement & _xx01, const int & _xx02 )
          : _ssss( sel )
       {
          if constexpr( check )
@@ -229,10 +235,11 @@ namespace val {
                throw std::invalid_argument( "wrong selector for constructor" );
             }
          }
+         tvm::init( repr. _fld06. loc, _xx02 );
          repr. _fld06. heap = takeshare( tvm::constr_scalar< _scal06 > ( std::pair( _xx00, _xx01 ) ));
       }
 
-      Statement( selector sel, const Expression & _xx00 )
+      Statement( selector sel, const Expression & _xx00, const int & _xx01 )
          : _ssss( sel )
       {
          if constexpr( check )
@@ -246,11 +253,12 @@ namespace val {
                throw std::invalid_argument( "wrong selector for constructor" );
             }
          }
+         tvm::init( repr. _fld07. loc, _xx01 );
          repr. _fld07. heap = takeshare( tvm::constr_scalar< _scal07 > ( _xx00 ));
       }
 
       template< tvm::const_iterator< _rep08 > It >
-      Statement( selector sel, const Expression & _xx00, It begin, It end, const std::string & _xx03, const bool & _xx04, const std::string & _xx05, const bool & _xx06 )
+      Statement( selector sel, const Expression & _xx00, It begin, It end, const std::string & _xx03, const bool & _xx04, const std::string & _xx05, const bool & _xx06, const int & _xx07 )
          : _ssss( sel )
       {
          if constexpr( check )
@@ -267,14 +275,15 @@ namespace val {
          tvm::init( get<1> ( repr. _fld08. loc ), _xx04 );
          tvm::init( get<2> ( repr. _fld08. loc ), _xx05 );
          tvm::init( get<3> ( repr. _fld08. loc ), _xx06 );
+         tvm::init( get<4> ( repr. _fld08. loc ), _xx07 );
          repr. _fld08. heap = takeshare( tvm::constr_scalar_repeated< _scal08, _rep08 > ( _xx00, begin, end ));
       }
 
-      Statement( selector sel, const Expression & _xx00, std::initializer_list< _rep08 > repeated, const std::string & _xx02, const bool & _xx03, const std::string & _xx04, const bool & _xx05 )
-         : Statement( sel, _xx00, repeated. begin( ), repeated. end( ), _xx02, _xx03, _xx04, _xx05 )
+      Statement( selector sel, const Expression & _xx00, std::initializer_list< _rep08 > repeated, const std::string & _xx02, const bool & _xx03, const std::string & _xx04, const bool & _xx05, const int & _xx06 )
+         : Statement( sel, _xx00, repeated. begin( ), repeated. end( ), _xx02, _xx03, _xx04, _xx05, _xx06 )
       { }
 
-      Statement( selector sel, const Statement & _xx00, const Expression & _xx01, const Statement & _xx02, const Statement & _xx03 )
+      Statement( selector sel, const Statement & _xx00, const Expression & _xx01, const Statement & _xx02, const Statement & _xx03, const int & _xx04 )
          : _ssss( sel )
       {
          if constexpr( check )
@@ -287,11 +296,12 @@ namespace val {
                throw std::invalid_argument( "wrong selector for constructor" );
             }
          }
+         tvm::init( repr. _fld09. loc, _xx04 );
          repr. _fld09. heap = takeshare( tvm::constr_scalar< _scal09 > ( std::tuple( _xx00, _xx01, _xx02, _xx03 ) ));
       }
 
       template< tvm::const_iterator< _rep10 > It >
-      Statement( selector sel, It begin, It end, const std::string & _xx02 )
+      Statement( selector sel, It begin, It end, const std::string & _xx02, const int & _xx03 )
          : _ssss( sel )
       {
          if constexpr( check )
@@ -304,16 +314,17 @@ namespace val {
                throw std::invalid_argument( "wrong selector for constructor" );
             }
          }
-         tvm::init( repr. _fld10. loc, _xx02 );
+         tvm::init( repr. _fld10. loc. first, _xx02 );
+         tvm::init( repr. _fld10. loc. second, _xx03 );
          repr. _fld10. heap = takeshare( tvm::constr_scalar_repeated< _scal10, _rep10 > ( tvm::unit( ), begin, end ));
       }
 
-      Statement( selector sel, std::initializer_list< _rep10 > repeated, const std::string & _xx01 )
-         : Statement( sel, repeated. begin( ), repeated. end( ), _xx01 )
+      Statement( selector sel, std::initializer_list< _rep10 > repeated, const std::string & _xx01, const int & _xx02 )
+         : Statement( sel, repeated. begin( ), repeated. end( ), _xx01, _xx02 )
       { }
 
       template< tvm::const_iterator< _rep11 > It >
-      Statement( selector sel, const Statement & _xx00, It begin, It end, const std::string & _xx03, const std::string & _xx04 )
+      Statement( selector sel, const Statement & _xx00, It begin, It end, const std::string & _xx03, const std::string & _xx04, const bool & _xx05, const int & _xx06 )
          : _ssss( sel )
       {
          if constexpr( check )
@@ -326,17 +337,19 @@ namespace val {
                throw std::invalid_argument( "wrong selector for constructor" );
             }
          }
-         tvm::init( repr. _fld11. loc. first, _xx03 );
-         tvm::init( repr. _fld11. loc. second, _xx04 );
+         tvm::init( get<0> ( repr. _fld11. loc ), _xx03 );
+         tvm::init( get<1> ( repr. _fld11. loc ), _xx04 );
+         tvm::init( get<2> ( repr. _fld11. loc ), _xx05 );
+         tvm::init( get<3> ( repr. _fld11. loc ), _xx06 );
          repr. _fld11. heap = takeshare( tvm::constr_scalar_repeated< _scal11, _rep11 > ( _xx00, begin, end ));
       }
 
-      Statement( selector sel, const Statement & _xx00, std::initializer_list< _rep11 > repeated, const std::string & _xx02, const std::string & _xx03 )
-         : Statement( sel, _xx00, repeated. begin( ), repeated. end( ), _xx02, _xx03 )
+      Statement( selector sel, const Statement & _xx00, std::initializer_list< _rep11 > repeated, const std::string & _xx02, const std::string & _xx03, const bool & _xx04, const int & _xx05 )
+         : Statement( sel, _xx00, repeated. begin( ), repeated. end( ), _xx02, _xx03, _xx04, _xx05 )
       { }
 
       template< tvm::const_iterator< _rep12 > It >
-      Statement( selector sel, It begin, It end, const std::string & _xx02 )
+      Statement( selector sel, It begin, It end, const std::string & _xx02, const int & _xx03 )
          : _ssss( sel )
       {
          if constexpr( check )
@@ -350,16 +363,17 @@ namespace val {
                throw std::invalid_argument( "wrong selector for constructor" );
             }
          }
-         tvm::init( repr. _fld12. loc, _xx02 );
+         tvm::init( repr. _fld12. loc. first, _xx02 );
+         tvm::init( repr. _fld12. loc. second, _xx03 );
          repr. _fld12. heap = takeshare( tvm::constr_scalar_repeated< _scal12, _rep12 > ( tvm::unit( ), begin, end ));
       }
 
-      Statement( selector sel, std::initializer_list< _rep12 > repeated, const std::string & _xx01 )
-         : Statement( sel, repeated. begin( ), repeated. end( ), _xx01 )
+      Statement( selector sel, std::initializer_list< _rep12 > repeated, const std::string & _xx01, const int & _xx02 )
+         : Statement( sel, repeated. begin( ), repeated. end( ), _xx01, _xx02 )
       { }
 
       template< tvm::const_iterator< _rep13 > It >
-      Statement( selector sel, const Expression & _xx00, It begin, It end )
+      Statement( selector sel, const Expression & _xx00, It begin, It end, const int & _xx03 )
          : _ssss( sel )
       {
          if constexpr( check )
@@ -372,14 +386,15 @@ namespace val {
                throw std::invalid_argument( "wrong selector for constructor" );
             }
          }
+         tvm::init( repr. _fld13. loc, _xx03 );
          repr. _fld13. heap = takeshare( tvm::constr_scalar_repeated< _scal13, _rep13 > ( _xx00, begin, end ));
       }
 
-      Statement( selector sel, const Expression & _xx00, std::initializer_list< _rep13 > repeated )
-         : Statement( sel, _xx00, repeated. begin( ), repeated. end( ) )
+      Statement( selector sel, const Expression & _xx00, std::initializer_list< _rep13 > repeated, const int & _xx02 )
+         : Statement( sel, _xx00, repeated. begin( ), repeated. end( ), _xx02 )
       { }
 
-      Statement( selector sel, const Expression & _xx00, const std::string & _xx01, const std::string & _xx02 )
+      Statement( selector sel, const Expression & _xx00, const std::string & _xx01, const std::string & _xx02, const int & _xx03 )
          : _ssss( sel )
       {
          if constexpr( check )
@@ -392,8 +407,9 @@ namespace val {
                throw std::invalid_argument( "wrong selector for constructor" );
             }
          }
-         tvm::init( repr. _fld14. loc. first, _xx01 );
-         tvm::init( repr. _fld14. loc. second, _xx02 );
+         tvm::init( get<0> ( repr. _fld14. loc ), _xx01 );
+         tvm::init( get<1> ( repr. _fld14. loc ), _xx02 );
+         tvm::init( get<2> ( repr. _fld14. loc ), _xx03 );
          repr. _fld14. heap = takeshare( tvm::constr_scalar< _scal14 > ( _xx00 ));
       }
 
@@ -414,7 +430,8 @@ namespace val {
          const Statement & operator * ( ) const { return * _xxxx; }
          const_ArrayInit( const Statement* _xxxx ) : _xxxx( _xxxx ) { }
 
-         const bool & is_dynamic( ) const { return _xxxx -> repr. _fld00. loc; }
+         const bool & is_dynamic( ) const { return _xxxx -> repr. _fld00. loc. first; }
+         const int & line( ) const { return _xxxx -> repr. _fld00. loc. second; }
 
          const Expression & init_expr( ) const { return get<0> ( _xxxx -> repr. _fld00. heap -> scal ); }
          const Statement & type_info( ) const { return get<1> ( _xxxx -> repr. _fld00. heap -> scal ); }
@@ -437,9 +454,12 @@ namespace val {
          mut_ArrayInit( Statement* _xxxx ) : _xxxx( _xxxx ) { }
          const Statement & operator * ( ) const { return * _xxxx; }
 
-         bool & is_dynamic( ) const { return _xxxx -> repr. _fld00. loc; }
-         bool extr_is_dynamic( ) const { return std::move( _xxxx -> repr. _fld00. loc ); }
-         void update_is_dynamic( const bool & from ) const { _xxxx -> repr. _fld00. loc = from; }
+         bool & is_dynamic( ) const { return _xxxx -> repr. _fld00. loc. first; }
+         bool extr_is_dynamic( ) const { return std::move( _xxxx -> repr. _fld00. loc. first ); }
+         void update_is_dynamic( const bool & from ) const { _xxxx -> repr. _fld00. loc. first = from; }
+         int & line( ) const { return _xxxx -> repr. _fld00. loc. second; }
+         int extr_line( ) const { return std::move( _xxxx -> repr. _fld00. loc. second ); }
+         void update_line( const int & from ) const { _xxxx -> repr. _fld00. loc. second = from; }
 
          const Expression & init_expr( ) const { return get<0> ( _xxxx -> repr. _fld00. heap -> scal ); }
          Expression extr_init_expr( ) const {
@@ -515,6 +535,8 @@ namespace val {
          const Statement & operator * ( ) const { return * _xxxx; }
          const_Assignment( const Statement* _xxxx ) : _xxxx( _xxxx ) { }
 
+         const int & line( ) const { return _xxxx -> repr. _fld01. loc; }
+
          const Expression & expr( ) const { return _xxxx -> repr. _fld01. heap -> scal. first; }
          const Expression & dest( ) const { return _xxxx -> repr. _fld01. heap -> scal. second; }
       };
@@ -534,6 +556,10 @@ namespace val {
          Statement* _xxxx;
          mut_Assignment( Statement* _xxxx ) : _xxxx( _xxxx ) { }
          const Statement & operator * ( ) const { return * _xxxx; }
+
+         int & line( ) const { return _xxxx -> repr. _fld01. loc; }
+         int extr_line( ) const { return std::move( _xxxx -> repr. _fld01. loc ); }
+         void update_line( const int & from ) const { _xxxx -> repr. _fld01. loc = from; }
 
          const Expression & expr( ) const { return _xxxx -> repr. _fld01. heap -> scal. first; }
          Expression extr_expr( ) const {
@@ -593,6 +619,8 @@ namespace val {
          const Statement* _xxxx;
          const Statement & operator * ( ) const { return * _xxxx; }
          const_Block( const Statement* _xxxx ) : _xxxx( _xxxx ) { }
+
+         const int & line( ) const { return _xxxx -> repr. _fld02. loc; }
          size_t size( ) const { return _xxxx -> repr. _fld02. heap -> size( ); }
          const Statement & statements( size_t _iiii ) const
             { return _xxxx -> repr. _fld02. heap -> begin( ) [ _iiii ]; }
@@ -613,6 +641,10 @@ namespace val {
          Statement* _xxxx;
          mut_Block( Statement* _xxxx ) : _xxxx( _xxxx ) { }
          const Statement & operator * ( ) const { return * _xxxx; }
+
+         int & line( ) const { return _xxxx -> repr. _fld02. loc; }
+         int extr_line( ) const { return std::move( _xxxx -> repr. _fld02. loc ); }
+         void update_line( const int & from ) const { _xxxx -> repr. _fld02. loc = from; }
 
          size_t size( ) const { return _xxxx -> repr. _fld02. heap -> size( ); }
          void push_back( const Statement & xx00 ) const
@@ -665,6 +697,8 @@ namespace val {
          const Statement* _xxxx;
          const Statement & operator * ( ) const { return * _xxxx; }
          const_Break( const Statement* _xxxx ) : _xxxx( _xxxx ) { }
+
+         const int & line( ) const { return _xxxx -> repr. _fld03. loc; }
       };
 
       const_Break view_Break( ) const
@@ -682,6 +716,10 @@ namespace val {
          Statement* _xxxx;
          mut_Break( Statement* _xxxx ) : _xxxx( _xxxx ) { }
          const Statement & operator * ( ) const { return * _xxxx; }
+
+         int & line( ) const { return _xxxx -> repr. _fld03. loc; }
+         int extr_line( ) const { return std::move( _xxxx -> repr. _fld03. loc ); }
+         void update_line( const int & from ) const { _xxxx -> repr. _fld03. loc = from; }
       };
 
       mut_Break view_Break( )
@@ -711,7 +749,8 @@ namespace val {
          const Statement & operator * ( ) const { return * _xxxx; }
          const_CaseClause( const Statement* _xxxx ) : _xxxx( _xxxx ) { }
 
-         const bool & is_wildcard( ) const { return _xxxx -> repr. _fld04. loc; }
+         const bool & is_wildcard( ) const { return _xxxx -> repr. _fld04. loc. first; }
+         const int & line( ) const { return _xxxx -> repr. _fld04. loc. second; }
 
          const Statement & case_body( ) const { return _xxxx -> repr. _fld04. heap -> scal. first; }
          const Expression & case_expr( ) const { return _xxxx -> repr. _fld04. heap -> scal. second; }
@@ -733,9 +772,12 @@ namespace val {
          mut_CaseClause( Statement* _xxxx ) : _xxxx( _xxxx ) { }
          const Statement & operator * ( ) const { return * _xxxx; }
 
-         bool & is_wildcard( ) const { return _xxxx -> repr. _fld04. loc; }
-         bool extr_is_wildcard( ) const { return std::move( _xxxx -> repr. _fld04. loc ); }
-         void update_is_wildcard( const bool & from ) const { _xxxx -> repr. _fld04. loc = from; }
+         bool & is_wildcard( ) const { return _xxxx -> repr. _fld04. loc. first; }
+         bool extr_is_wildcard( ) const { return std::move( _xxxx -> repr. _fld04. loc. first ); }
+         void update_is_wildcard( const bool & from ) const { _xxxx -> repr. _fld04. loc. first = from; }
+         int & line( ) const { return _xxxx -> repr. _fld04. loc. second; }
+         int extr_line( ) const { return std::move( _xxxx -> repr. _fld04. loc. second ); }
+         void update_line( const int & from ) const { _xxxx -> repr. _fld04. loc. second = from; }
 
          const Statement & case_body( ) const { return _xxxx -> repr. _fld04. heap -> scal. first; }
          Statement extr_case_body( ) const {
@@ -796,6 +838,8 @@ namespace val {
          const Statement & operator * ( ) const { return * _xxxx; }
          const_Condition( const Statement* _xxxx ) : _xxxx( _xxxx ) { }
 
+         const int & line( ) const { return _xxxx -> repr. _fld05. loc; }
+
          const Expression & if_cond( ) const { return get<0> ( _xxxx -> repr. _fld05. heap -> scal ); }
          const Statement & if_body( ) const { return get<1> ( _xxxx -> repr. _fld05. heap -> scal ); }
          const Statement & else_body( ) const { return get<2> ( _xxxx -> repr. _fld05. heap -> scal ); }
@@ -819,6 +863,10 @@ namespace val {
          Statement* _xxxx;
          mut_Condition( Statement* _xxxx ) : _xxxx( _xxxx ) { }
          const Statement & operator * ( ) const { return * _xxxx; }
+
+         int & line( ) const { return _xxxx -> repr. _fld05. loc; }
+         int extr_line( ) const { return std::move( _xxxx -> repr. _fld05. loc ); }
+         void update_line( const int & from ) const { _xxxx -> repr. _fld05. loc = from; }
 
          const Expression & if_cond( ) const { return get<0> ( _xxxx -> repr. _fld05. heap -> scal ); }
          Expression extr_if_cond( ) const {
@@ -917,6 +965,8 @@ namespace val {
          const Statement* _xxxx;
          const Statement & operator * ( ) const { return * _xxxx; }
          const_Continue( const Statement* _xxxx ) : _xxxx( _xxxx ) { }
+
+         const int & line( ) const { return _xxxx -> repr. _fld03. loc; }
       };
 
       const_Continue view_Continue( ) const
@@ -934,6 +984,10 @@ namespace val {
          Statement* _xxxx;
          mut_Continue( Statement* _xxxx ) : _xxxx( _xxxx ) { }
          const Statement & operator * ( ) const { return * _xxxx; }
+
+         int & line( ) const { return _xxxx -> repr. _fld03. loc; }
+         int extr_line( ) const { return std::move( _xxxx -> repr. _fld03. loc ); }
+         void update_line( const int & from ) const { _xxxx -> repr. _fld03. loc = from; }
       };
 
       mut_Continue view_Continue( )
@@ -963,6 +1017,8 @@ namespace val {
          const Statement & operator * ( ) const { return * _xxxx; }
          const_ElifCondition( const Statement* _xxxx ) : _xxxx( _xxxx ) { }
 
+         const int & line( ) const { return _xxxx -> repr. _fld06. loc; }
+
          const Expression & elif_cond( ) const { return _xxxx -> repr. _fld06. heap -> scal. first; }
          const Statement & elif_body( ) const { return _xxxx -> repr. _fld06. heap -> scal. second; }
       };
@@ -982,6 +1038,10 @@ namespace val {
          Statement* _xxxx;
          mut_ElifCondition( Statement* _xxxx ) : _xxxx( _xxxx ) { }
          const Statement & operator * ( ) const { return * _xxxx; }
+
+         int & line( ) const { return _xxxx -> repr. _fld06. loc; }
+         int extr_line( ) const { return std::move( _xxxx -> repr. _fld06. loc ); }
+         void update_line( const int & from ) const { _xxxx -> repr. _fld06. loc = from; }
 
          const Expression & elif_cond( ) const { return _xxxx -> repr. _fld06. heap -> scal. first; }
          Expression extr_elif_cond( ) const {
@@ -1041,6 +1101,8 @@ namespace val {
          const Statement* _xxxx;
          const Statement & operator * ( ) const { return * _xxxx; }
          const_Empty( const Statement* _xxxx ) : _xxxx( _xxxx ) { }
+
+         const int & line( ) const { return _xxxx -> repr. _fld03. loc; }
       };
 
       const_Empty view_Empty( ) const
@@ -1058,6 +1120,10 @@ namespace val {
          Statement* _xxxx;
          mut_Empty( Statement* _xxxx ) : _xxxx( _xxxx ) { }
          const Statement & operator * ( ) const { return * _xxxx; }
+
+         int & line( ) const { return _xxxx -> repr. _fld03. loc; }
+         int extr_line( ) const { return std::move( _xxxx -> repr. _fld03. loc ); }
+         void update_line( const int & from ) const { _xxxx -> repr. _fld03. loc = from; }
       };
 
       mut_Empty view_Empty( )
@@ -1087,6 +1153,8 @@ namespace val {
          const Statement & operator * ( ) const { return * _xxxx; }
          const_ExprCall( const Statement* _xxxx ) : _xxxx( _xxxx ) { }
 
+         const int & line( ) const { return _xxxx -> repr. _fld07. loc; }
+
          const Expression & expr( ) const { return _xxxx -> repr. _fld07. heap -> scal; }
       };
 
@@ -1105,6 +1173,10 @@ namespace val {
          Statement* _xxxx;
          mut_ExprCall( Statement* _xxxx ) : _xxxx( _xxxx ) { }
          const Statement & operator * ( ) const { return * _xxxx; }
+
+         int & line( ) const { return _xxxx -> repr. _fld07. loc; }
+         int extr_line( ) const { return std::move( _xxxx -> repr. _fld07. loc ); }
+         void update_line( const int & from ) const { _xxxx -> repr. _fld07. loc = from; }
 
          const Expression & expr( ) const { return _xxxx -> repr. _fld07. heap -> scal; }
          Expression extr_expr( ) const {
@@ -1154,6 +1226,7 @@ namespace val {
          const bool & is_inout( ) const { return get<1> ( _xxxx -> repr. _fld08. loc ); }
          const std::string & var_name( ) const { return get<2> ( _xxxx -> repr. _fld08. loc ); }
          const bool & is_array( ) const { return get<3> ( _xxxx -> repr. _fld08. loc ); }
+         const int & line( ) const { return get<4> ( _xxxx -> repr. _fld08. loc ); }
 
          const Expression & default_expr( ) const { return _xxxx -> repr. _fld08. heap -> scal; }
          size_t size( ) const { return _xxxx -> repr. _fld08. heap -> size( ); }
@@ -1189,6 +1262,9 @@ namespace val {
          bool & is_array( ) const { return get<3> ( _xxxx -> repr. _fld08. loc ); }
          bool extr_is_array( ) const { return std::move( get<3> ( _xxxx -> repr. _fld08. loc ) ); }
          void update_is_array( const bool & from ) const { get<3> ( _xxxx -> repr. _fld08. loc ) = from; }
+         int & line( ) const { return get<4> ( _xxxx -> repr. _fld08. loc ); }
+         int extr_line( ) const { return std::move( get<4> ( _xxxx -> repr. _fld08. loc ) ); }
+         void update_line( const int & from ) const { get<4> ( _xxxx -> repr. _fld08. loc ) = from; }
 
          const Expression & default_expr( ) const { return _xxxx -> repr. _fld08. heap -> scal; }
          Expression extr_default_expr( ) const {
@@ -1258,6 +1334,8 @@ namespace val {
          const Statement & operator * ( ) const { return * _xxxx; }
          const_ForLoop( const Statement* _xxxx ) : _xxxx( _xxxx ) { }
 
+         const int & line( ) const { return _xxxx -> repr. _fld09. loc; }
+
          const Statement & init_part( ) const { return get<0> ( _xxxx -> repr. _fld09. heap -> scal ); }
          const Expression & check( ) const { return get<1> ( _xxxx -> repr. _fld09. heap -> scal ); }
          const Statement & final_expr( ) const { return get<2> ( _xxxx -> repr. _fld09. heap -> scal ); }
@@ -1279,6 +1357,10 @@ namespace val {
          Statement* _xxxx;
          mut_ForLoop( Statement* _xxxx ) : _xxxx( _xxxx ) { }
          const Statement & operator * ( ) const { return * _xxxx; }
+
+         int & line( ) const { return _xxxx -> repr. _fld09. loc; }
+         int extr_line( ) const { return std::move( _xxxx -> repr. _fld09. loc ); }
+         void update_line( const int & from ) const { _xxxx -> repr. _fld09. loc = from; }
 
          const Statement & init_part( ) const { return get<0> ( _xxxx -> repr. _fld09. heap -> scal ); }
          Statement extr_init_part( ) const {
@@ -1369,7 +1451,8 @@ namespace val {
          const Statement & operator * ( ) const { return * _xxxx; }
          const_MakeEnum( const Statement* _xxxx ) : _xxxx( _xxxx ) { }
 
-         const std::string & enum_name( ) const { return _xxxx -> repr. _fld10. loc; }
+         const std::string & enum_name( ) const { return _xxxx -> repr. _fld10. loc. first; }
+         const int & line( ) const { return _xxxx -> repr. _fld10. loc. second; }
          size_t size( ) const { return _xxxx -> repr. _fld10. heap -> size( ); }
          const std::string & enum_variants( size_t _iiii ) const
             { return _xxxx -> repr. _fld10. heap -> begin( ) [ _iiii ]; }
@@ -1391,9 +1474,12 @@ namespace val {
          mut_MakeEnum( Statement* _xxxx ) : _xxxx( _xxxx ) { }
          const Statement & operator * ( ) const { return * _xxxx; }
 
-         std::string & enum_name( ) const { return _xxxx -> repr. _fld10. loc; }
-         std::string extr_enum_name( ) const { return std::move( _xxxx -> repr. _fld10. loc ); }
-         void update_enum_name( const std::string & from ) const { _xxxx -> repr. _fld10. loc = from; }
+         std::string & enum_name( ) const { return _xxxx -> repr. _fld10. loc. first; }
+         std::string extr_enum_name( ) const { return std::move( _xxxx -> repr. _fld10. loc. first ); }
+         void update_enum_name( const std::string & from ) const { _xxxx -> repr. _fld10. loc. first = from; }
+         int & line( ) const { return _xxxx -> repr. _fld10. loc. second; }
+         int extr_line( ) const { return std::move( _xxxx -> repr. _fld10. loc. second ); }
+         void update_line( const int & from ) const { _xxxx -> repr. _fld10. loc. second = from; }
 
          size_t size( ) const { return _xxxx -> repr. _fld10. heap -> size( ); }
          void push_back( const std::string & xx00 ) const
@@ -1447,8 +1533,10 @@ namespace val {
          const Statement & operator * ( ) const { return * _xxxx; }
          const_MakeFunction( const Statement* _xxxx ) : _xxxx( _xxxx ) { }
 
-         const std::string & fn_name( ) const { return _xxxx -> repr. _fld11. loc. first; }
-         const std::string & ret_type_name( ) const { return _xxxx -> repr. _fld11. loc. second; }
+         const std::string & fn_name( ) const { return get<0> ( _xxxx -> repr. _fld11. loc ); }
+         const std::string & ret_type_name( ) const { return get<1> ( _xxxx -> repr. _fld11. loc ); }
+         const bool & is_array( ) const { return get<2> ( _xxxx -> repr. _fld11. loc ); }
+         const int & line( ) const { return get<3> ( _xxxx -> repr. _fld11. loc ); }
 
          const Statement & fn_body( ) const { return _xxxx -> repr. _fld11. heap -> scal; }
          size_t size( ) const { return _xxxx -> repr. _fld11. heap -> size( ); }
@@ -1472,12 +1560,18 @@ namespace val {
          mut_MakeFunction( Statement* _xxxx ) : _xxxx( _xxxx ) { }
          const Statement & operator * ( ) const { return * _xxxx; }
 
-         std::string & fn_name( ) const { return _xxxx -> repr. _fld11. loc. first; }
-         std::string extr_fn_name( ) const { return std::move( _xxxx -> repr. _fld11. loc. first ); }
-         void update_fn_name( const std::string & from ) const { _xxxx -> repr. _fld11. loc. first = from; }
-         std::string & ret_type_name( ) const { return _xxxx -> repr. _fld11. loc. second; }
-         std::string extr_ret_type_name( ) const { return std::move( _xxxx -> repr. _fld11. loc. second ); }
-         void update_ret_type_name( const std::string & from ) const { _xxxx -> repr. _fld11. loc. second = from; }
+         std::string & fn_name( ) const { return get<0> ( _xxxx -> repr. _fld11. loc ); }
+         std::string extr_fn_name( ) const { return std::move( get<0> ( _xxxx -> repr. _fld11. loc ) ); }
+         void update_fn_name( const std::string & from ) const { get<0> ( _xxxx -> repr. _fld11. loc ) = from; }
+         std::string & ret_type_name( ) const { return get<1> ( _xxxx -> repr. _fld11. loc ); }
+         std::string extr_ret_type_name( ) const { return std::move( get<1> ( _xxxx -> repr. _fld11. loc ) ); }
+         void update_ret_type_name( const std::string & from ) const { get<1> ( _xxxx -> repr. _fld11. loc ) = from; }
+         bool & is_array( ) const { return get<2> ( _xxxx -> repr. _fld11. loc ); }
+         bool extr_is_array( ) const { return std::move( get<2> ( _xxxx -> repr. _fld11. loc ) ); }
+         void update_is_array( const bool & from ) const { get<2> ( _xxxx -> repr. _fld11. loc ) = from; }
+         int & line( ) const { return get<3> ( _xxxx -> repr. _fld11. loc ); }
+         int extr_line( ) const { return std::move( get<3> ( _xxxx -> repr. _fld11. loc ) ); }
+         void update_line( const int & from ) const { get<3> ( _xxxx -> repr. _fld11. loc ) = from; }
 
          const Statement & fn_body( ) const { return _xxxx -> repr. _fld11. heap -> scal; }
          Statement extr_fn_body( ) const {
@@ -1547,7 +1641,8 @@ namespace val {
          const Statement & operator * ( ) const { return * _xxxx; }
          const_MakeProperty( const Statement* _xxxx ) : _xxxx( _xxxx ) { }
 
-         const std::string & prop_name( ) const { return _xxxx -> repr. _fld12. loc; }
+         const std::string & prop_name( ) const { return _xxxx -> repr. _fld12. loc. first; }
+         const int & line( ) const { return _xxxx -> repr. _fld12. loc. second; }
          size_t size( ) const { return _xxxx -> repr. _fld12. heap -> size( ); }
          const Statement & opts( size_t _iiii ) const
             { return _xxxx -> repr. _fld12. heap -> begin( ) [ _iiii ]; }
@@ -1569,9 +1664,12 @@ namespace val {
          mut_MakeProperty( Statement* _xxxx ) : _xxxx( _xxxx ) { }
          const Statement & operator * ( ) const { return * _xxxx; }
 
-         std::string & prop_name( ) const { return _xxxx -> repr. _fld12. loc; }
-         std::string extr_prop_name( ) const { return std::move( _xxxx -> repr. _fld12. loc ); }
-         void update_prop_name( const std::string & from ) const { _xxxx -> repr. _fld12. loc = from; }
+         std::string & prop_name( ) const { return _xxxx -> repr. _fld12. loc. first; }
+         std::string extr_prop_name( ) const { return std::move( _xxxx -> repr. _fld12. loc. first ); }
+         void update_prop_name( const std::string & from ) const { _xxxx -> repr. _fld12. loc. first = from; }
+         int & line( ) const { return _xxxx -> repr. _fld12. loc. second; }
+         int extr_line( ) const { return std::move( _xxxx -> repr. _fld12. loc. second ); }
+         void update_line( const int & from ) const { _xxxx -> repr. _fld12. loc. second = from; }
 
          size_t size( ) const { return _xxxx -> repr. _fld12. heap -> size( ); }
          void push_back( const Statement & xx00 ) const
@@ -1625,7 +1723,8 @@ namespace val {
          const Statement & operator * ( ) const { return * _xxxx; }
          const_MakeStruct( const Statement* _xxxx ) : _xxxx( _xxxx ) { }
 
-         const std::string & struct_name( ) const { return _xxxx -> repr. _fld12. loc; }
+         const std::string & struct_name( ) const { return _xxxx -> repr. _fld12. loc. first; }
+         const int & line( ) const { return _xxxx -> repr. _fld12. loc. second; }
          size_t size( ) const { return _xxxx -> repr. _fld12. heap -> size( ); }
          const Statement & inits( size_t _iiii ) const
             { return _xxxx -> repr. _fld12. heap -> begin( ) [ _iiii ]; }
@@ -1647,9 +1746,12 @@ namespace val {
          mut_MakeStruct( Statement* _xxxx ) : _xxxx( _xxxx ) { }
          const Statement & operator * ( ) const { return * _xxxx; }
 
-         std::string & struct_name( ) const { return _xxxx -> repr. _fld12. loc; }
-         std::string extr_struct_name( ) const { return std::move( _xxxx -> repr. _fld12. loc ); }
-         void update_struct_name( const std::string & from ) const { _xxxx -> repr. _fld12. loc = from; }
+         std::string & struct_name( ) const { return _xxxx -> repr. _fld12. loc. first; }
+         std::string extr_struct_name( ) const { return std::move( _xxxx -> repr. _fld12. loc. first ); }
+         void update_struct_name( const std::string & from ) const { _xxxx -> repr. _fld12. loc. first = from; }
+         int & line( ) const { return _xxxx -> repr. _fld12. loc. second; }
+         int extr_line( ) const { return std::move( _xxxx -> repr. _fld12. loc. second ); }
+         void update_line( const int & from ) const { _xxxx -> repr. _fld12. loc. second = from; }
 
          size_t size( ) const { return _xxxx -> repr. _fld12. heap -> size( ); }
          void push_back( const Statement & xx00 ) const
@@ -1703,6 +1805,8 @@ namespace val {
          const Statement & operator * ( ) const { return * _xxxx; }
          const_Match( const Statement* _xxxx ) : _xxxx( _xxxx ) { }
 
+         const int & line( ) const { return _xxxx -> repr. _fld13. loc; }
+
          const Expression & matched_expr( ) const { return _xxxx -> repr. _fld13. heap -> scal; }
          size_t size( ) const { return _xxxx -> repr. _fld13. heap -> size( ); }
          const Statement & cases( size_t _iiii ) const
@@ -1724,6 +1828,10 @@ namespace val {
          Statement* _xxxx;
          mut_Match( Statement* _xxxx ) : _xxxx( _xxxx ) { }
          const Statement & operator * ( ) const { return * _xxxx; }
+
+         int & line( ) const { return _xxxx -> repr. _fld13. loc; }
+         int extr_line( ) const { return std::move( _xxxx -> repr. _fld13. loc ); }
+         void update_line( const int & from ) const { _xxxx -> repr. _fld13. loc = from; }
 
          const Expression & matched_expr( ) const { return _xxxx -> repr. _fld13. heap -> scal; }
          Expression extr_matched_expr( ) const {
@@ -1793,6 +1901,8 @@ namespace val {
          const Statement & operator * ( ) const { return * _xxxx; }
          const_Return( const Statement* _xxxx ) : _xxxx( _xxxx ) { }
 
+         const int & line( ) const { return _xxxx -> repr. _fld07. loc; }
+
          const Expression & return_expr( ) const { return _xxxx -> repr. _fld07. heap -> scal; }
       };
 
@@ -1811,6 +1921,10 @@ namespace val {
          Statement* _xxxx;
          mut_Return( Statement* _xxxx ) : _xxxx( _xxxx ) { }
          const Statement & operator * ( ) const { return * _xxxx; }
+
+         int & line( ) const { return _xxxx -> repr. _fld07. loc; }
+         int extr_line( ) const { return std::move( _xxxx -> repr. _fld07. loc ); }
+         void update_line( const int & from ) const { _xxxx -> repr. _fld07. loc = from; }
 
          const Expression & return_expr( ) const { return _xxxx -> repr. _fld07. heap -> scal; }
          Expression extr_return_expr( ) const {
@@ -1856,8 +1970,9 @@ namespace val {
          const Statement & operator * ( ) const { return * _xxxx; }
          const_VarInit( const Statement* _xxxx ) : _xxxx( _xxxx ) { }
 
-         const std::string & var_name( ) const { return _xxxx -> repr. _fld14. loc. first; }
-         const std::string & type_name( ) const { return _xxxx -> repr. _fld14. loc. second; }
+         const std::string & var_name( ) const { return get<0> ( _xxxx -> repr. _fld14. loc ); }
+         const std::string & type_name( ) const { return get<1> ( _xxxx -> repr. _fld14. loc ); }
+         const int & line( ) const { return get<2> ( _xxxx -> repr. _fld14. loc ); }
 
          const Expression & init_expr( ) const { return _xxxx -> repr. _fld14. heap -> scal; }
       };
@@ -1878,12 +1993,15 @@ namespace val {
          mut_VarInit( Statement* _xxxx ) : _xxxx( _xxxx ) { }
          const Statement & operator * ( ) const { return * _xxxx; }
 
-         std::string & var_name( ) const { return _xxxx -> repr. _fld14. loc. first; }
-         std::string extr_var_name( ) const { return std::move( _xxxx -> repr. _fld14. loc. first ); }
-         void update_var_name( const std::string & from ) const { _xxxx -> repr. _fld14. loc. first = from; }
-         std::string & type_name( ) const { return _xxxx -> repr. _fld14. loc. second; }
-         std::string extr_type_name( ) const { return std::move( _xxxx -> repr. _fld14. loc. second ); }
-         void update_type_name( const std::string & from ) const { _xxxx -> repr. _fld14. loc. second = from; }
+         std::string & var_name( ) const { return get<0> ( _xxxx -> repr. _fld14. loc ); }
+         std::string extr_var_name( ) const { return std::move( get<0> ( _xxxx -> repr. _fld14. loc ) ); }
+         void update_var_name( const std::string & from ) const { get<0> ( _xxxx -> repr. _fld14. loc ) = from; }
+         std::string & type_name( ) const { return get<1> ( _xxxx -> repr. _fld14. loc ); }
+         std::string extr_type_name( ) const { return std::move( get<1> ( _xxxx -> repr. _fld14. loc ) ); }
+         void update_type_name( const std::string & from ) const { get<1> ( _xxxx -> repr. _fld14. loc ) = from; }
+         int & line( ) const { return get<2> ( _xxxx -> repr. _fld14. loc ); }
+         int extr_line( ) const { return std::move( get<2> ( _xxxx -> repr. _fld14. loc ) ); }
+         void update_line( const int & from ) const { get<2> ( _xxxx -> repr. _fld14. loc ) = from; }
 
          const Expression & init_expr( ) const { return _xxxx -> repr. _fld14. heap -> scal; }
          Expression extr_init_expr( ) const {
@@ -1929,6 +2047,8 @@ namespace val {
          const Statement & operator * ( ) const { return * _xxxx; }
          const_WhileLoop( const Statement* _xxxx ) : _xxxx( _xxxx ) { }
 
+         const int & line( ) const { return _xxxx -> repr. _fld06. loc; }
+
          const Expression & cond( ) const { return _xxxx -> repr. _fld06. heap -> scal. first; }
          const Statement & whileloop_body( ) const { return _xxxx -> repr. _fld06. heap -> scal. second; }
       };
@@ -1948,6 +2068,10 @@ namespace val {
          Statement* _xxxx;
          mut_WhileLoop( Statement* _xxxx ) : _xxxx( _xxxx ) { }
          const Statement & operator * ( ) const { return * _xxxx; }
+
+         int & line( ) const { return _xxxx -> repr. _fld06. loc; }
+         int extr_line( ) const { return std::move( _xxxx -> repr. _fld06. loc ); }
+         void update_line( const int & from ) const { _xxxx -> repr. _fld06. loc = from; }
 
          const Expression & cond( ) const { return _xxxx -> repr. _fld06. heap -> scal. first; }
          Expression extr_cond( ) const {

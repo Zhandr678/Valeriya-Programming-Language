@@ -67,7 +67,7 @@ namespace val
 	struct FnTable
 	{
 		std::string name;
-		std::string ret_type_name;
+		VariableKind ret_kind;
 		struct Param
 		{
 			bool is_inout{0};

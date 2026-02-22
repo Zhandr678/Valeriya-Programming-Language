@@ -6,6 +6,7 @@
 #include <unordered_map>
 
 #include "Types.h"
+
 using Command = std::variant<std::monostate>;
 namespace val
 {
@@ -18,6 +19,9 @@ namespace val
 		std::unordered_map <std::string, TypeClass> type_table;
 		std::unordered_map <std::string, FnTable> fn_table;
 		std::unordered_map <std::string, bool> active;
+		std::unordered_map <std::string, std::string> option_to_prop;
+
+		std::vector <std::string> block_allocated;
 
 #pragma region("Type Table Helpers")
 		StructType ConstructStructType(const Statement& make_struct_stmt) const noexcept;
@@ -25,8 +29,10 @@ namespace val
 		EnumType ConstructEnumType(const Statement& make_enum_stmt) const noexcept;
 		FnTable ConstructFn(const Statement& make_fn_stmt) const noexcept;
 
-		bool NameExists(const std::string& name) const;
-		bool TypeExists(const std::string& name) const;
+		bool NameExists(const std::string& name) const noexcept;
+		bool TypeExists(const std::string& name) const noexcept;
+
+		bool CanBeAssigned(const VariableKind& to, const VariableKind& from) noexcept;
 #pragma endregion
 
 #pragma region("Symbol Table Helpers")
@@ -34,13 +40,11 @@ namespace val
 		void AddType(const std::string& type_name, TypeClass&& type) noexcept;
 		void AddFn(const std::string& fn_name, FnTable&& ftable) noexcept;
 
+		void Activate(const std::string& name) noexcept;
 		void Deactivate(const std::string& name) noexcept;
 #pragma endregion
-		void VerifyInoutUniqueness(const Expression& fn_call_expr) const;
 
 #pragma region("Semantics")
-		
-
 		VariableKind AnalyzeVarNameExpr(const Expression& varname_expr);
 		VariableKind AnalyzeArrayCallExpr(const Expression& array_call);
 		VariableKind AnalyzeLiterals(const Expression& any_literal_expr);
@@ -58,12 +62,12 @@ namespace val
 		void AnalyzeVarInit(const Statement& var_init_stmt);
 		void AnalyzeArrayInit(const Statement& array_init_stmt);
 
-		void AnalyzeWhileLoop(const Statement& while_loop_stmt);
+		bool AnalyzeLoopBody(const Statement& block_stmt, bool should_return, const VariableKind& ret);
+		void AnalyzeWhileLoop(const Statement& while_loop_stmt, bool should_return, const VariableKind& ret);
 
-		void AnalyzeForLoop(const Statement& for_stmt);
+		void AnalyzeFinalForLoopStmt(const Statement& final_for_stmt);
+		void AnalyzeForLoop(const Statement& for_stmt, bool should_return, const VariableKind& ret);
 
-		void AnalyzeFnBody(const Statement& fn_stmt);
-		void AnalyzeFnParams(const Statement& fn_param_stmt);
 		void AnalyzeMakeFunction(const Statement& make_fn_stmt);
 
 		void AnalyzeMakeStruct(const Statement& make_struct_stmt);
@@ -73,16 +77,14 @@ namespace val
 
 		void AnalyzeMakeEnum(const Statement& make_enum_stmt);
 
-		void AnalyzeCaseBody(const Statement& case_block_stmt, const std::string& active_option);
-		void AnalyzeCaseClause(const Statement& case_clause_stmt, const Expression& match_expr);
-		void AnalyzeMatch(const Statement& match_stmt);
+		bool AnalyzeMatch(const Statement& match_stmt, bool should_return, const VariableKind& ret);
 
 		void AnalyzeAssignment(const Statement& assign_stmt);
 
-		void AnalyzeElif(const Statement& elif_stmt);
-		void AnalyzeCondition(const Statement& cond_stmt);
+		bool AnalyzeElif(const Statement& elif_stmt, bool should_return, const VariableKind& ret);
+		bool AnalyzeCondition(const Statement& cond_stmt, bool should_return, const VariableKind& ret);
 
-		void AnalyzeBlock(const Statement& block_stmt);
+		bool AnalyzeBlock(const Statement& block_stmt, bool should_return, const VariableKind& ret);
 		
 #pragma endregion
 

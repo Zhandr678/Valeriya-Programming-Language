@@ -24,5 +24,4 @@ namespace val
 			return static_cast <const DerivedCommand*>(this)->Convert_To_C();
 		}
 	};
-
 }

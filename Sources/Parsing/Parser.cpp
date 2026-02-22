@@ -4,8 +4,6 @@
 
 #pragma region("Helpers")
 
-#define _Dupl(x) x, x
-
 static bool CanBeTypeName(val::TokenLabel lbl)
 {
 	return lbl == val::TokenLabel::KW_INT || lbl == val::TokenLabel::KW_UINT || lbl == val::TokenLabel::KW_BOOL || lbl == val::TokenLabel::KW_STRING ||
@@ -151,7 +149,7 @@ namespace val
 				stms.push_back(*st);
 			}
 			else {
-				auto expr = ParseExpression(_Dupl(TokenLabel::SYM_SEMICOLON));
+				auto expr = ParseExpression({ TokenLabel::SYM_SEMICOLON });
 
 				if (not expr.has_value())
 				{
@@ -164,13 +162,13 @@ namespace val
 				}
 
 				ResetLookAhead();
-				stms.emplace_back(ExprCallStmt, *expr);
+				stms.emplace_back(ExprCallStmt, *expr, GetLine());
 			}
 			next_token = GetNextPeeked();
 		}
 		next--;
 
-		return Statement(BlockOfStmt, stms.begin(), stms.end());
+		return Statement(BlockOfStmt, stms.begin(), stms.end(), GetLine());
 	}
 
 	std::string Parser::GetFileName() const
@@ -218,8 +216,7 @@ namespace val
 
 	static Expression NormalizeFieldCallExpr(const Expression& expr)
 	{
-		if (!expr.option_is_FieldCall())
-			return expr;
+		if (not expr.option_is_FieldCall()) { return expr; }
 
 		auto view = expr.view_FieldCall();
 
@@ -259,7 +256,7 @@ namespace val
 		);
 	}
 
-	std::optional<Expression> Parser::ParseExpression(TokenLabel flag1, TokenLabel flag2)
+	std::optional<Expression> Parser::ParseExpression(const std::vector <TokenLabel>& flags)
 	{
 		Token next_token = GetNextPeeked();
 
@@ -268,7 +265,7 @@ namespace val
 		{
 			is_unary = true;
 			ResetLookAhead();
-			auto unary_expr = ParseExpression(flag1, flag2);
+			auto unary_expr = ParseExpression(flags);
 
 			if (not unary_expr.has_value())
 			{
@@ -302,7 +299,7 @@ namespace val
 					while (next_token.label != TokenLabel::SYM_RPAR)
 					{
 						next--;
-						auto expr = ParseExpression(TokenLabel::SYM_COMMA, TokenLabel::SYM_RPAR);
+						auto expr = ParseExpression({ TokenLabel::SYM_COMMA, TokenLabel::SYM_RPAR });
 						if (not expr.has_value())
 						{
 							throw ParserException("Expected Expression in Function Body After '('", GetFileName(), ExprCallStmt, GetLine());
@@ -328,7 +325,7 @@ namespace val
 					next_token = GetNextPeeked();
 					if (next_token.label == TokenLabel::SYM_DOT)
 					{
-						auto expr_after_dot = ParseExpression(flag1, flag2);
+						auto expr_after_dot = ParseExpression(flags);
 
 						if (not expr_after_dot.has_value())
 						{
@@ -342,7 +339,7 @@ namespace val
 						Expression array_index(FnCallExpr, args.begin(), args.end(), name_token.attr);
 						while (next_token.label == TokenLabel::SYM_LBRACKET)
 						{
-							auto index_expr = ParseExpression(_Dupl(TokenLabel::SYM_RBRACKET));
+							auto index_expr = ParseExpression({ TokenLabel::SYM_RBRACKET });
 
 							if (not index_expr.has_value())
 							{
@@ -361,7 +358,7 @@ namespace val
 
 						if (next_token.label == TokenLabel::SYM_DOT)
 						{
-							auto expr_after_dot = ParseExpression(flag1, flag2);
+							auto expr_after_dot = ParseExpression(flags);
 
 							if (not expr_after_dot.has_value())
 							{
@@ -385,7 +382,7 @@ namespace val
 					Expression array_index(VarNameExpr, name_token.attr);
 					while (next_token.label == TokenLabel::SYM_LBRACKET)
 					{
-						auto index_expr = ParseExpression(_Dupl(TokenLabel::SYM_RBRACKET));
+						auto index_expr = ParseExpression({ TokenLabel::SYM_RBRACKET });
 
 						if (not index_expr.has_value())
 						{
@@ -404,7 +401,7 @@ namespace val
 
 					if (next_token.label == TokenLabel::SYM_DOT)
 					{
-						auto expr_after_dot = ParseExpression(flag1, flag2);
+						auto expr_after_dot = ParseExpression(flags);
 
 						if (not expr_after_dot.has_value())
 						{
@@ -425,7 +422,7 @@ namespace val
 					while (next_token.label != TokenLabel::SYM_RBRACE)
 					{
 						next--;
-						auto expr = ParseExpression(TokenLabel::SYM_COMMA, TokenLabel::SYM_RBRACE);
+						auto expr = ParseExpression({ TokenLabel::SYM_COMMA, TokenLabel::SYM_RBRACE });
 						if (not expr.has_value())
 						{
 							throw ParserException("Expected Expression in Struct Initialization", GetFileName(), ExprCallStmt, GetLine());;
@@ -449,7 +446,7 @@ namespace val
 					next_token = GetNextPeeked();
 					if (next_token.label == TokenLabel::SYM_DOT)
 					{
-						auto expr_after_dot = ParseExpression(flag1, flag2);
+						auto expr_after_dot = ParseExpression(flags);
 
 						if (not expr_after_dot.has_value())
 						{
@@ -465,7 +462,7 @@ namespace val
 				}
 				else if (next_token.label == TokenLabel::SYM_DOT)
 				{
-					auto expr_after_dot = ParseExpression(flag1, flag2);
+					auto expr_after_dot = ParseExpression(flags);
 
 					if (not expr_after_dot.has_value())
 					{
@@ -473,7 +470,7 @@ namespace val
 					}
 					single_exprs.emplace_back(UnaryExpr, NormalizeFieldCallExpr(Expression(FieldCallExpr, Expression(VarNameExpr, name_token.attr), *expr_after_dot)), "-");
 				}
-				else if (next_token.label == flag1 || next_token.label == flag2)
+				else if (std::find(flags.begin(), flags.end(), next_token.label) != flags.end())
 				{
 					next--;
 					single_exprs.emplace_back(UnaryExpr, Expression(VarNameExpr, name_token.attr), "-");
@@ -488,7 +485,7 @@ namespace val
 			}
 			else if (next_token.label == TokenLabel::SYM_LPAR)
 			{
-				auto par_expr = ParseExpression(_Dupl(TokenLabel::SYM_RPAR));
+				auto par_expr = ParseExpression({ TokenLabel::SYM_RPAR });
 				if (not par_expr.has_value())
 				{
 					throw ParserException("Expected Expression After '('", GetFileName(), ExprCallStmt, GetLine());
@@ -514,18 +511,18 @@ namespace val
 				next_token = GetNextPeeked();
 			}
 
-			else if (next_token.label == flag1 || next_token.label == flag2)
+			else if (std::find(flags.begin(), flags.end(), next_token.label) != flags.end())
 			{
 				next--;
 				return single_exprs.back();
 			}
 		}
 
-		while (next_token.label != flag1 && next_token.label != flag2)
+		while (std::find(flags.begin(), flags.end(), next_token.label) == flags.end())
 		{
 			if (next_token.label == TokenLabel::SYM_LPAR)
 			{
-				auto par_expr = ParseExpression(_Dupl(TokenLabel::SYM_RPAR));
+				auto par_expr = ParseExpression({ TokenLabel::SYM_RPAR });
 
 				if (not par_expr.has_value())
 				{
@@ -541,7 +538,7 @@ namespace val
 
 				next_token = GetNextPeeked();
 
-				if (next_token.label == flag1 || next_token.label == flag2)
+				if (std::find(flags.begin(), flags.end(), next_token.label) != flags.end())
 				{
 					next--;
 					break;
@@ -563,7 +560,7 @@ namespace val
 				while (next_token.label != TokenLabel::SYM_RBRACE)
 				{
 					next--;
-					auto expr = ParseExpression(TokenLabel::SYM_COMMA, TokenLabel::SYM_RBRACE);
+					auto expr = ParseExpression({ TokenLabel::SYM_COMMA, TokenLabel::SYM_RBRACE });
 
 					if (not expr.has_value())
 					{
@@ -610,7 +607,7 @@ namespace val
 					single_exprs.emplace_back(InitListExpr, array_exprs.begin(), array_exprs.end());
 				}
 
-				if (next_token.label == flag1 || next_token.label == flag2)
+				if (std::find(flags.begin(), flags.end(), next_token.label) != flags.end())
 				{
 					next--;
 					break;
@@ -631,7 +628,7 @@ namespace val
 
 				next_token = GetNextPeeked();
 
-				if (next_token.label == flag1 || next_token.label == flag2)
+				if (std::find(flags.begin(), flags.end(), next_token.label) != flags.end())
 				{
 					next--;
 					break;
@@ -651,7 +648,7 @@ namespace val
 
 				next_token = GetNextPeeked();
 
-				if (next_token.label == flag1 || next_token.label == flag2)
+				if (std::find(flags.begin(), flags.end(), next_token.label) != flags.end())
 				{
 					next--;
 					break;
@@ -671,7 +668,7 @@ namespace val
 
 				next_token = GetNextPeeked();
 
-				if (next_token.label == flag1 || next_token.label == flag2)
+				if (std::find(flags.begin(), flags.end(), next_token.label) != flags.end())
 				{
 					next--;
 					break;
@@ -691,7 +688,7 @@ namespace val
 
 				next_token = GetNextPeeked();
 
-				if (next_token.label == flag1 || next_token.label == flag2)
+				if (std::find(flags.begin(), flags.end(), next_token.label) != flags.end())
 				{
 					next--;
 					break;
@@ -711,7 +708,7 @@ namespace val
 
 				next_token = GetNextPeeked();
 
-				if (next_token.label == flag1 || next_token.label == flag2)
+				if (std::find(flags.begin(), flags.end(), next_token.label) != flags.end())
 				{
 					next--;
 					break;
@@ -731,7 +728,7 @@ namespace val
 
 				next_token = GetNextPeeked();
 
-				if (next_token.label == flag1 || next_token.label == flag2)
+				if (std::find(flags.begin(), flags.end(), next_token.label) != flags.end())
 				{
 					next--;
 					break;
@@ -750,7 +747,13 @@ namespace val
 				Token name_token = std::move(next_token);
 				next_token = GetNextPeeked();
 
-				if (IsBinaryOperator(next_token.label))
+				if (std::find(flags.begin(), flags.end(), next_token.label) != flags.end())
+				{
+					single_exprs.emplace_back(VarNameExpr, name_token.attr);
+					next--;
+					break;
+				}
+				else if (IsBinaryOperator(next_token.label))
 				{
 					single_exprs.emplace_back(VarNameExpr, name_token.attr);
 					operators.push_back(next_token);
@@ -763,7 +766,7 @@ namespace val
 					while (next_token.label != TokenLabel::SYM_RBRACE)
 					{
 						next--;
-						auto expr = ParseExpression(TokenLabel::SYM_COMMA, TokenLabel::SYM_RBRACE);
+						auto expr = ParseExpression({ TokenLabel::SYM_COMMA, TokenLabel::SYM_RBRACE });
 						if (not expr.has_value())
 						{
 							throw ParserException("Expected Expression in Struct Initialization", GetFileName(), ExprCallStmt, GetLine());;
@@ -802,7 +805,7 @@ namespace val
 						)));
 						next_token = GetNextPeeked();
 					}
-					if (next_token.label == flag1 || next_token.label == flag2)
+					if (std::find(flags.begin(), flags.end(), next_token.label) != flags.end())
 					{
 						single_exprs.emplace_back(StructInitExpr, struct_inits.begin(), struct_inits.end(), name_token.attr);
 						next--;
@@ -822,7 +825,7 @@ namespace val
 					Expression array_index(VarNameExpr, name_token.attr);
 					while (next_token.label == TokenLabel::SYM_LBRACKET)
 					{
-						auto index_expr = ParseExpression(_Dupl(TokenLabel::SYM_RBRACKET));
+						auto index_expr = ParseExpression({ TokenLabel::SYM_RBRACKET });
 
 						if (not index_expr.has_value())
 						{
@@ -841,7 +844,7 @@ namespace val
 
 					if (next_token.label == TokenLabel::SYM_DOT)
 					{
-						auto expr_after_dot = ParseExpression(flag1, flag2);
+						auto expr_after_dot = ParseExpression(flags);
 
 						if (not expr_after_dot.has_value())
 						{
@@ -857,7 +860,7 @@ namespace val
 
 					next_token = GetNextPeeked();
 
-					if (next_token.label == flag1 || next_token.label == flag2)
+					if (std::find(flags.begin(), flags.end(), next_token.label) != flags.end())
 					{
 						next--;
 						break;
@@ -877,7 +880,7 @@ namespace val
 					while (next_token.label != TokenLabel::SYM_RPAR)
 					{
 						next--;
-						auto expr = ParseExpression(TokenLabel::SYM_COMMA, TokenLabel::SYM_RPAR);
+						auto expr = ParseExpression({ TokenLabel::SYM_COMMA, TokenLabel::SYM_RPAR });
 						if (not expr.has_value())
 						{
 							throw ParserException("Expected Expression in Function Args", GetFileName(), ExprCallStmt, GetLine());;
@@ -901,7 +904,7 @@ namespace val
 					next_token = GetNextPeeked();
 					if (next_token.label == TokenLabel::SYM_DOT)
 					{
-						auto expr_after_dot = ParseExpression(flag1, flag2);
+						auto expr_after_dot = ParseExpression(flags);
 
 						if (not expr_after_dot.has_value())
 						{
@@ -918,7 +921,7 @@ namespace val
 						Expression array_index(FnCallExpr, args.begin(), args.end(), name_token.attr);
 						while (next_token.label == TokenLabel::SYM_LBRACKET)
 						{
-							auto index_expr = ParseExpression(_Dupl(TokenLabel::SYM_RBRACKET));
+							auto index_expr = ParseExpression({ TokenLabel::SYM_RBRACKET });
 
 							if (not index_expr.has_value())
 							{
@@ -937,7 +940,7 @@ namespace val
 
 						if (next_token.label == TokenLabel::SYM_DOT)
 						{
-							auto expr_after_dot = ParseExpression(flag1, flag2);
+							auto expr_after_dot = ParseExpression(flags);
 
 							if (not expr_after_dot.has_value())
 							{
@@ -955,7 +958,7 @@ namespace val
 
 						next_token = GetNextPeeked();
 
-						if (next_token.label == flag1 || next_token.label == flag2)
+						if (std::find(flags.begin(), flags.end(), next_token.label) != flags.end())
 						{
 							next--;
 							break;
@@ -972,7 +975,7 @@ namespace val
 						single_exprs.emplace_back(FnCallExpr, args.begin(), args.end(), name_token.attr);
 					}
 
-					if (next_token.label == flag1 || next_token.label == flag2)
+					if (std::find(flags.begin(), flags.end(), next_token.label) != flags.end())
 					{
 						next--;
 						break;
@@ -987,15 +990,18 @@ namespace val
 						throw ParserException("Expression MUST NOT Follow Expression", GetFileName(), ExprCallStmt, GetLine()); 
 					} // expression followed by expression
 				}
-				else if (next_token.label == flag1 || next_token.label == flag2)
-				{
-					single_exprs.emplace_back(VarNameExpr, name_token.attr);
-					next--;
-					break;
-				}
 				else if (next_token.label == TokenLabel::SYM_DOT)
 				{
-					auto expr_after_dot = ParseExpression(flag1, flag2);
+					std::vector <TokenLabel> OPERS = {
+						TokenLabel::SYM_AND,     TokenLabel::SYM_OR,      TokenLabel::SYM_XOR,
+						TokenLabel::SYM_LAND,    TokenLabel::SYM_LOR,     TokenLabel::SYM_PLUS,
+						TokenLabel::SYM_MINUS,   TokenLabel::SYM_TIMES,   TokenLabel::SYM_DIV,
+						TokenLabel::SYM_MOD,     TokenLabel::SYM_POW,     TokenLabel::SYM_EQUAL,
+						TokenLabel::SYM_NEQ,     TokenLabel::SYM_LESS,    TokenLabel::SYM_GREATER,
+						TokenLabel::SYM_LEQ,     TokenLabel::SYM_GEQ
+					};
+					OPERS.insert(OPERS.end(), flags.begin(), flags.end());
+					auto expr_after_dot = ParseExpression(OPERS);
 
 					if (not expr_after_dot.has_value())
 					{
@@ -1008,7 +1014,7 @@ namespace val
 
 					next_token = GetNextPeeked();
 
-					if (next_token.label == flag1 || next_token.label == flag2)
+					if (std::find(flags.begin(), flags.end(), next_token.label) != flags.end())
 					{
 						next--;
 						break;
@@ -1054,14 +1060,14 @@ namespace val
 				throw ParserException("Expected Assignment Statement", GetFileName(), ForLoopStmt, GetLine());
 			}
 
-			auto expr = ParseExpression(TokenLabel::SYM_COMMA, TokenLabel::SYM_RPAR);
+			auto expr = ParseExpression({ TokenLabel::SYM_COMMA, TokenLabel::SYM_RPAR });
 
 			if (!expr.has_value())
 			{
 				throw ParserException("Expected Expression After '='", GetFileName(), ForLoopStmt, GetLine());
 			}
 
-			assignments.emplace_back(AssignmentStmt, *expr, Expression(VarNameExpr, next_token.attr));
+			assignments.emplace_back(AssignmentStmt, *expr, Expression(VarNameExpr, next_token.attr), GetLine());
 
 			next_token = GetNextPeeked();
 			if (next_token.label == TokenLabel::SYM_COMMA)
@@ -1081,7 +1087,7 @@ namespace val
 
 		if (assignments.empty()) { return std::nullopt; }
 		ResetLookAhead();
-		return Statement(BlockOfStmt, assignments.begin(), assignments.end());
+		return Statement(BlockOfStmt, assignments.begin(), assignments.end(), GetLine());
 	}
 
 	std::optional<Statement> Parser::AnalyzeReturnStatement()
@@ -1095,11 +1101,11 @@ namespace val
 		if (GetNextPeeked().label == TokenLabel::SYM_SEMICOLON)
 		{
 			ResetLookAhead();
-			return Statement(ReturnStmt, Expression(EmptyExpr));
+			return Statement(ReturnStmt, Expression(EmptyExpr), GetLine());
 		}
 
 		next--;
-		auto ret_expr = ParseExpression(_Dupl(TokenLabel::SYM_SEMICOLON));
+		auto ret_expr = ParseExpression({ TokenLabel::SYM_SEMICOLON });
 
 		if (not ret_expr.has_value())
 		{
@@ -1112,28 +1118,29 @@ namespace val
 		}
 
 		ResetLookAhead();
-		return Statement(ReturnStmt, *ret_expr);
+		return Statement(ReturnStmt, *ret_expr, GetLine());
 	}
 
 	std::optional<Statement> Parser::AnalyzeLoopCommands()
 	{
-		if (GetNextPeeked().label == TokenLabel::KW_CONTINUE)
+		Token next_token = GetNextPeeked();
+		if (next_token.label == TokenLabel::KW_CONTINUE)
 		{
 			if (GetNextPeeked().label != TokenLabel::SYM_SEMICOLON)
 			{
 				throw ParserException("Expected Semicolon", GetFileName(), ContinueStmt, GetLine());
 			}
 			ResetLookAhead();
-			return Statement(ContinueStmt);
+			return Statement(ContinueStmt, GetLine());
 		}
-		if (GetNextPeeked().label == TokenLabel::KW_BREAK)
+		if (next_token.label == TokenLabel::KW_BREAK)
 		{
 			if (GetNextPeeked().label != TokenLabel::SYM_SEMICOLON)
 			{
 				throw ParserException("Expected Semicolon", GetFileName(), BreakStmt, GetLine());
 			}
 			ResetLookAhead();
-			return Statement(BreakStmt);
+			return Statement(BreakStmt, GetLine());
 		}
 
 		next = 0;
@@ -1163,6 +1170,12 @@ namespace val
 	std::optional<Statement> Parser::AnalyzeInitalizationStatement()
 	{
 		Token type_token = GetNextPeeked();
+
+		if (type_token.label == TokenLabel::SYM_SEMICOLON)
+		{
+			ResetLookAhead();
+			return std::nullopt;
+		}
 
 		if (not CanBeTypeName(type_token.label))
 		{
@@ -1194,11 +1207,11 @@ namespace val
 
 			if (next_token.label == TokenLabel::SYM_LBRACKET)
 			{
-				Statement array_init(VarInitStmt, Expression(EmptyExpr), varname_token.attr, type_token.attr);
+				Statement array_init(VarInitStmt, Expression(EmptyExpr), varname_token.attr, type_token.attr, GetLine());
 
 				if (next_token.label == TokenLabel::SYM_LBRACKET) // If Someday implement multidim arrays: if -> while
 				{
-					auto size_expr = ParseExpression(_Dupl(TokenLabel::SYM_RBRACKET));
+					auto size_expr = ParseExpression({ TokenLabel::SYM_RBRACKET });
 
 					if (not size_expr.has_value()) { next--; }
 					if (GetNextPeeked().label != TokenLabel::SYM_RBRACKET)
@@ -1207,17 +1220,17 @@ namespace val
 					}
 					
 					if (size_expr.has_value()) {
-						array_init = Statement(ArrayInitStmt, Expression(EmptyExpr), array_init, *size_expr, false);
+						array_init = Statement(ArrayInitStmt, Expression(EmptyExpr), array_init, *size_expr, false, GetLine());
 					}
 					else {
-						array_init = Statement(ArrayInitStmt, Expression(EmptyExpr), array_init, Expression(EmptyExpr), true);
+						array_init = Statement(ArrayInitStmt, Expression(EmptyExpr), array_init, Expression(EmptyExpr), true, GetLine());
 					}
 					next_token = GetNextPeeked();
 				}
 
 				if (next_token.label == TokenLabel::SYM_ASSIGN)
 				{
-					auto assign_expr = ParseExpression(TokenLabel::SYM_COMMA, TokenLabel::SYM_SEMICOLON);
+					auto assign_expr = ParseExpression({ TokenLabel::SYM_COMMA, TokenLabel::SYM_SEMICOLON });
 
 					if (not assign_expr.has_value())
 					{
@@ -1247,7 +1260,7 @@ namespace val
 
 			else if (next_token.label == TokenLabel::SYM_COMMA)
 			{
-				var_inits.emplace_back(VarInitStmt, Expression(EmptyExpr), varname_token.attr, type_token.attr);
+				var_inits.emplace_back(VarInitStmt, Expression(EmptyExpr), varname_token.attr, type_token.attr, GetLine());
 				next_token = GetNextPeeked();
 				ResetLookAhead();
 				continue;
@@ -1255,21 +1268,21 @@ namespace val
 
 			else if (next_token.label == TokenLabel::SYM_SEMICOLON)
 			{
-				var_inits.emplace_back(VarInitStmt, Expression(EmptyExpr), varname_token.attr, type_token.attr);
+				var_inits.emplace_back(VarInitStmt, Expression(EmptyExpr), varname_token.attr, type_token.attr, GetLine());
 				ResetLookAhead();
 				break;
 			}
 
 			else if (next_token.label == TokenLabel::SYM_ASSIGN)
 			{
-				auto expr = ParseExpression(TokenLabel::SYM_SEMICOLON, TokenLabel::SYM_COMMA);
+				auto expr = ParseExpression({ TokenLabel::SYM_SEMICOLON, TokenLabel::SYM_COMMA });
 
 				if (not expr.has_value()) 
 				{ 
 					throw ParserException("Expected Expression", GetFileName(), VarInitStmt, GetLine()); // no expression after equal symbol
 				}
 				
-				var_inits.emplace_back(VarInitStmt, *expr, varname_token.attr, type_token.attr);
+				var_inits.emplace_back(VarInitStmt, *expr, varname_token.attr, type_token.attr, GetLine());
 				// ResetLookAhead();
 				
 				next_token = GetNextPeeked();
@@ -1286,7 +1299,7 @@ namespace val
 		}
 
 		ResetLookAhead();
-		return Statement(BlockOfStmt, var_inits.begin(), var_inits.end());
+		return Statement(BlockOfStmt, var_inits.begin(), var_inits.end(), GetLine());
 	}
 
 	std::optional<Statement> Parser::AnalyzeAssignmentStatement()
@@ -1311,7 +1324,7 @@ namespace val
 
 		next = 0;
 
-		auto assigned = ParseExpression(_Dupl(TokenLabel::SYM_ASSIGN));
+		auto assigned = ParseExpression({ TokenLabel::SYM_ASSIGN });
 
 		if (not assigned.has_value())
 		{
@@ -1323,7 +1336,7 @@ namespace val
 			throw ParserException("Assign Token Missing", GetFileName(), AssignmentStmt, GetLine());
 		}
 
-		auto to = ParseExpression(_Dupl(TokenLabel::SYM_SEMICOLON));
+		auto to = ParseExpression({ TokenLabel::SYM_SEMICOLON });
 
 		if (not to.has_value())
 		{
@@ -1336,7 +1349,7 @@ namespace val
 		}
 
 		ResetLookAhead();
-		return Statement(AssignmentStmt, *to, *assigned);
+		return Statement(AssignmentStmt, *to, *assigned, GetLine());
 	}
 
 	std::optional<Statement> Parser::AnalyzeConditionStatement()
@@ -1352,7 +1365,7 @@ namespace val
 			throw ParserException("Expected '(' after 'if'", GetFileName(), ConditionStmt, GetLine()); // no ( after if
 		}
 
-		auto expr = ParseExpression(_Dupl(TokenLabel::SYM_RPAR));
+		auto expr = ParseExpression({ TokenLabel::SYM_RPAR });
 		
 		if (not expr.has_value())
 		{
@@ -1387,7 +1400,7 @@ namespace val
 				throw ParserException("Expected '(' after 'elif'", GetFileName(), ConditionStmt, GetLine()); // elif (!
 			}
 
-			auto elif_expr = ParseExpression(_Dupl(TokenLabel::SYM_RPAR));
+			auto elif_expr = ParseExpression({ TokenLabel::SYM_RPAR });
 
 			if (GetNextPeeked().label != TokenLabel::SYM_RPAR)
 			{
@@ -1407,12 +1420,12 @@ namespace val
 				throw ParserException("Expected Closing '}'", GetFileName(), ConditionStmt, GetLine()); // elif () {}!
 			}
 
-			elifs.push_back(Statement(ElifConditionStmt, *elif_expr, elif_body));
+			elifs.push_back(Statement(ElifConditionStmt, *elif_expr, elif_body, GetLine()));
 			ResetLookAhead();
 			next_token = GetNextPeeked();
 		}
 
-		Statement else_body(EmptyStmt);
+		Statement else_body(EmptyStmt, GetLine());
 
 		if (next_token.label == TokenLabel::KW_ELSE)
 		{
@@ -1431,7 +1444,7 @@ namespace val
 		}
 
 		else { next--; } // very bad!
-		return Statement(ConditionStmt, *expr, if_body, else_body, elifs.begin(), elifs.end());
+		return Statement(ConditionStmt, *expr, if_body, else_body, elifs.begin(), elifs.end(), GetLine());
 	}
 
 	std::optional<Statement> Parser::AnalyzeForLoopStatement()
@@ -1449,11 +1462,15 @@ namespace val
 
 		auto init_part = AnalyzeInitalizationStatement();
 
-		auto check_part = ParseExpression(_Dupl(TokenLabel::SYM_SEMICOLON));
-
+		std::optional <Expression> check_part = std::nullopt;
 		if (GetNextPeeked().label != TokenLabel::SYM_SEMICOLON)
 		{
-			throw ParserException("Expected ';'", GetFileName(), ForLoopStmt, GetLine());
+			next--;
+			check_part = ParseExpression({ TokenLabel::SYM_SEMICOLON });
+			if (GetNextPeeked().label != TokenLabel::SYM_SEMICOLON)
+			{
+				throw ParserException("Expected ';'", GetFileName(), ForLoopStmt, GetLine());
+			}
 		}
 
 		auto final_stmt = ParseForLoopFinalStatement();
@@ -1472,7 +1489,14 @@ namespace val
 		}
 
 		ResetLookAhead();
-		return Statement(ForLoopStmt, init_part.value_or(Statement(EmptyStmt)), check_part.value_or(Expression(EmptyExpr)), final_stmt.value_or(Statement(EmptyStmt)), for_body);
+		return Statement(
+			ForLoopStmt, 
+			init_part.value_or(Statement(EmptyStmt, GetLine())), 
+			check_part.value_or(Expression(EmptyExpr)), 
+			final_stmt.value_or(Statement(EmptyStmt, GetLine())), 
+			for_body, 
+			GetLine()
+		);
 	}
 
 	std::optional<Statement> Parser::AnalyzeWhileLoopStatement()
@@ -1488,7 +1512,7 @@ namespace val
 			throw ParserException("Expected '(' after 'while'", GetFileName(), WhileLoopStmt, GetLine()); // expected ( after while
 		}
 
-		auto expr = ParseExpression(_Dupl(TokenLabel::SYM_RPAR));
+		auto expr = ParseExpression({ TokenLabel::SYM_RPAR });
 
 		if (not expr.has_value())
 		{
@@ -1514,7 +1538,7 @@ namespace val
 		}
 
 		ResetLookAhead();
-		return Statement(WhileLoopStmt, *expr, while_body);
+		return Statement(WhileLoopStmt, *expr, while_body, GetLine());
 	}
 
 	std::optional<Statement> Parser::AnalyzeMakeFunctionStatement()
@@ -1618,7 +1642,7 @@ namespace val
 			next_token = GetNextPeeked();
 			if (next_token.label == TokenLabel::SYM_EQUAL)
 			{
-				auto expr = ParseExpression(_Dupl(TokenLabel::SYM_SEMICOLON));
+				auto expr = ParseExpression({ TokenLabel::SYM_SEMICOLON });
 				if (not expr.has_value())
 				{
 					throw ParserException("Expected Expression", GetFileName(), MakeFunctionStmt, GetLine()); // expected expression after =
@@ -1627,7 +1651,7 @@ namespace val
 				default_expr = *expr;
 			}
 
-			args.emplace_back(FnArgsStmt, default_expr, array_info.begin(), array_info.end(), type_name, is_inout, var_name, array_info.empty() ? false : true);
+			args.emplace_back(FnArgsStmt, default_expr, array_info.begin(), array_info.end(), type_name, is_inout, var_name, array_info.empty() ? false : true, GetLine());
 			
 			if (next_token.label == TokenLabel::SYM_COMMA) {
 				next_token = GetNextPeeked();
@@ -1653,7 +1677,16 @@ namespace val
 			throw ParserException("Not a Return Type Name", GetFileName(), MakeFunctionStmt, GetLine()); // expected valid return_type
 		}
 
-		if (GetNextPeeked().label != TokenLabel::SYM_LBRACE)
+		next_token = GetNextPeeked();
+		bool is_array = false;
+
+		if (next_token.label == TokenLabel::SYM_LBRACKET && GetNextPeeked().label == TokenLabel::SYM_RBRACKET)
+		{
+			is_array = true;
+			next_token = GetNextPeeked();
+		}
+
+		if (next_token.label != TokenLabel::SYM_LBRACE)
 		{
 			throw ParserException("Expected Body of 'fn'", GetFileName(), MakeFunctionStmt, GetLine()); // expected {
 		}
@@ -1667,7 +1700,7 @@ namespace val
 		}
 
 		ResetLookAhead();
-		return Statement(MakeFunctionStmt, fn_body, args.begin(), args.end(), fn_name_token.attr, ret_type_token.attr);
+		return Statement(MakeFunctionStmt, fn_body, args.begin(), args.end(), fn_name_token.attr, ret_type_token.attr, is_array, GetLine());
 	}
 
 	std::optional<Statement> Parser::AnalyzeMakeStructStatement()
@@ -1715,7 +1748,7 @@ namespace val
 		}
 
 		ResetLookAhead();
-		return Statement(MakeStructStmt, var_inits.begin(), var_inits.end(), struct_name_token.attr);
+		return Statement(MakeStructStmt, var_inits.begin(), var_inits.end(), struct_name_token.attr, GetLine());
 	}
 
 	std::optional<Statement> Parser::AnalyzeMakePropertyStatement()
@@ -1783,12 +1816,12 @@ namespace val
 				throw ParserException("Expected Closing '}' but got", GetFileName(), MakePropertyStmt, GetLine()); // option : { ... }!
 			}
 
-			prop_opts.push_back(Statement(MakeStructStmt, opt_inits.begin(), opt_inits.end(), prop_name_token.attr + "_" + next_token.attr + "_opt"));
+			prop_opts.push_back(Statement(MakeStructStmt, opt_inits.begin(), opt_inits.end(), next_token.attr, GetLine()));
 			next_token = GetNextPeeked();
 		}
 
 		ResetLookAhead();
-		return Statement(MakePropertyStmt, prop_opts.begin(), prop_opts.end(), prop_name_token.attr);
+		return Statement(MakePropertyStmt, prop_opts.begin(), prop_opts.end(), prop_name_token.attr, GetLine());
 	}
 
 	std::optional<Statement> Parser::AnalyzeMakeEnumStatement()
@@ -1838,7 +1871,7 @@ namespace val
 		}
 
 		ResetLookAhead();
-		return Statement(MakeEnumStmt, enum_options.begin(), enum_options.end(), enum_name_token.attr);
+		return Statement(MakeEnumStmt, enum_options.begin(), enum_options.end(), enum_name_token.attr, GetLine());
 	}
 
 	std::optional<Statement> Parser::AnalyzeMatchStatement()
@@ -1854,7 +1887,7 @@ namespace val
 			throw ParserException("Expected Matching Variable", GetFileName(), MatchStmt, GetLine()); // match (!
 		}
 
-		auto matched_expr = ParseExpression(_Dupl(TokenLabel::SYM_RPAR));
+		auto matched_expr = ParseExpression({ TokenLabel::SYM_RPAR });
 		if (not matched_expr.has_value())
 		{
 			throw ParserException("Expected Expression", GetFileName(), MatchStmt, GetLine());
@@ -1891,7 +1924,7 @@ namespace val
 			else 
 			{
 				next--;
-				case_expr = ParseExpression(_Dupl(TokenLabel::SYM_ARROW));
+				case_expr = ParseExpression({ TokenLabel::SYM_ARROW });
 
 				if (not case_expr.has_value())
 				{
@@ -1919,12 +1952,12 @@ namespace val
 			}
 
 			ResetLookAhead();
-			case_clauses.push_back(Statement(CaseClauseStmt, case_block, case_expr.value_or(Expression(EmptyExpr)), is_wildcard));
+			case_clauses.push_back(Statement(CaseClauseStmt, case_block, case_expr.value_or(Expression(EmptyExpr)), is_wildcard, GetLine()));
 			next_token = GetNextPeeked();
 		}
 
 		ResetLookAhead();
-		return Statement(MatchStmt, *matched_expr, case_clauses.begin(), case_clauses.end());
+		return Statement(MatchStmt, *matched_expr, case_clauses.begin(), case_clauses.end(), GetLine());
 	}
 
 }
