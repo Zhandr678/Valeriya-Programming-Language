@@ -1,13 +1,10 @@
 #pragma once
 
 #include "Statements/Statement.h"
-#include "Commands/Command.h"
-
 #include <unordered_map>
 
 #include "Types.h"
 
-using Command = std::variant<std::monostate>;
 namespace val
 {
 	class Semantics
@@ -96,7 +93,7 @@ namespace val
 
 		Semantics(const std::string& filename);
 
-		std::vector <Command> AnalyzePrepareCommands(const Statement& AST);
+		void Analysis(const Statement& AST);
 	};
 
 }

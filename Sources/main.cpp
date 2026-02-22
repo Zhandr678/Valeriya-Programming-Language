@@ -11,7 +11,7 @@
 #include "Lexing/Lexer.h"
 #include "Parsing/Parser.h"
 #include "SemanticAnalysis/Semantics.h"
-#include "Compilation/Compiler.h"
+#include "Commands/CGenerator.h"
 
 #ifndef RUN_TESTS
 
@@ -43,7 +43,7 @@ int main(int argc, char* argv[])
 		);
 
 		auto AST = parser.ConstructAST();
-		std::vector <Command> cmds = val::Semantics(val_source_path.filename().string()).AnalyzePrepareCommands(AST);
+		val::Semantics(val_source_path.filename().string()).Analysis(AST);
 
 	}
 	catch (const std::logic_error& e)

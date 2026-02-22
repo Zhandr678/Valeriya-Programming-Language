@@ -35,10 +35,4 @@ fn exec(inout Command c, inout int x) -> int
 	return x;
 }
 
-
-{
-	int a;
-}
-
-a = 5;
 int i = exec(Rotate{Angle{50}}, 5);

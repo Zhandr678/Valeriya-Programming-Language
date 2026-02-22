@@ -50,25 +50,15 @@ namespace val
         }
     }
 
-    static void AddCommands(std::vector <Command>& commands, std::vector <Command>&& more_cmds)
-    {
-        for (const Command& cmd : more_cmds)
-        {
-            commands.push_back(cmd);
-        }
-    }
-
 	Semantics::Semantics(const std::string& filename) : filename(filename)
     {}
 
-    std::vector<Command> Semantics::AnalyzePrepareCommands(const Statement& AST)
+    void Semantics::Analysis(const Statement& AST)
     {
         if (not AST.option_is_Block()) 
         {
             throw SemanticException("Unexpected Option " + AST.sel(), filename, BlockOfStmt, GetLine(AST));
         }
-
-        std::vector <Command> commands;
 
         const auto& seq = AST.view_Block();
 
@@ -119,8 +109,6 @@ namespace val
                 throw SemanticException("Unexpected Statement", filename, BlockOfStmt, GetLine(seq.statements(i)));
             }
         }
-
-        return commands;
     }
 
     std::string ExprToStr(const Expression& expr)
@@ -962,8 +950,6 @@ namespace val
         }
 
         AddVariable(var_init_stmt);
-
-        std::cout << "VarInit Command ready\n";
     }
 
     // done 
@@ -1002,8 +988,6 @@ namespace val
         }
 
         AddVariable(array_init_stmt);
-
-        std::cout << "Array Init Ready\n";
     }
 
     bool Semantics::AnalyzeLoopBody(const Statement& block_stmt, bool should_return, const VariableKind& ret)
@@ -1111,8 +1095,6 @@ namespace val
         }
         block_allocated.clear();
 
-        std::cout << "Block is ready\n";
-
         return returns;
     }
 
@@ -1129,8 +1111,6 @@ namespace val
         {
 			throw SemanticException("While Loop Condition Must be of Type bool", filename, WhileLoopStmt, GetLine(while_loop_stmt));
         }
-
-        std::cout << "WhileLoop Command ready\n";
 
 		AnalyzeLoopBody(view.whileloop_body(), should_return, ret);
     }
@@ -1289,8 +1269,6 @@ namespace val
         symbol_table.clear();
         symbol_table = std::move(temp_st);
         AddFn(view.fn_name(), ConstructFn(make_fn_stmt));
-
-        std::cout << "Make Fn Ready\n";
     }
 
     void Semantics::AnalyzeMakeStruct(const Statement& make_struct_stmt)
@@ -1356,8 +1334,6 @@ namespace val
         }
 
         AddType(view.struct_name(), std::move(ConstructStructType(make_struct_stmt)));
-
-        std::cout << "Make Struct Command Ready\n";
     }
 
     void Semantics::AnalyzePropertyOption(const Statement& prop_opt_stmt, const std::string& prop_name)
@@ -1411,7 +1387,6 @@ namespace val
             }
 
         }
-        std::cout << "Property Option " << view.struct_name() << " Ready\n";
     }
 
     void Semantics::AnalyzeMakeProperty(const Statement& make_prop_stmt)
@@ -1443,8 +1418,6 @@ namespace val
         }
 
         AddType(view.prop_name(), std::move(ConstructPropertyType(make_prop_stmt)));
-
-        std::cout << "Property Command Ready\n";
     }
 
     void Semantics::AnalyzeMakeEnum(const Statement& make_enum_stmt)
@@ -1474,8 +1447,6 @@ namespace val
         }
 
         AddType(view.enum_name(), ConstructEnumType(make_enum_stmt));
-
-        std::cout << "Enum Command Ready\n";
     }
 
     bool Semantics::AnalyzeMatch(const Statement& match_stmt, bool should_return, const VariableKind& ret)
@@ -1536,8 +1507,6 @@ namespace val
             }
         }
 
-        std::cout << "Match Command Ready\n";
-
         return changed ? returns : false;
     }
 
@@ -1554,8 +1523,6 @@ namespace val
         {
 			throw SemanticException("Cannot Assign Expression", filename, AssignmentStmt, GetLine(assign_stmt));
         }
-
-        std::cout << "Assignment Command Ready\n";
     }
 
     bool Semantics::AnalyzeElif(const Statement& elif_stmt, bool should_return, const VariableKind& ret)
@@ -1572,7 +1539,6 @@ namespace val
 			throw SemanticException("Elif Condition Must be of Type bool", filename, ElifConditionStmt, GetLine(elif_stmt));
         }
 
-        std::cout << "Elif Body Ready\n";
         return AnalyzeBlock(view.elif_body(), should_return, ret);
     }
 
@@ -1606,8 +1572,6 @@ namespace val
         {
             else_returns = AnalyzeBlock(view.else_body(), should_return, ret);
         }
-
-        std::cout << "Condition Ready\n";
 
         return else_returns ? if_returns && ((elif_returns && changed) || (not changed)) : false;
     }
@@ -1711,9 +1675,6 @@ namespace val
             Deactivate(var);
         }
 		block_allocated.clear();
-
-        std::cout << "Block is ready\n";
-
         return returns;
     }
 
