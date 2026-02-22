@@ -94,7 +94,7 @@ namespace val
 		Semantics(Semantics&&) noexcept = delete;
 		Semantics& operator=(Semantics&&) noexcept = delete;
 
-		Semantics() = default;
+		Semantics(const std::string& filename);
 
 		std::vector <Command> AnalyzePrepareCommands(const Statement& AST);
 	};

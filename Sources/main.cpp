@@ -42,10 +42,9 @@ int main(int argc, char* argv[])
 			)
 		);
 
-		val::Semantics s;
-
 		auto AST = parser.ConstructAST();
-		s.AnalyzePrepareCommands(AST);
+		std::vector <Command> cmds = val::Semantics(val_source_path.filename().string()).AnalyzePrepareCommands(AST);
+
 	}
 	catch (const std::logic_error& e)
 	{

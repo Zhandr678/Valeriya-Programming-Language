@@ -58,6 +58,9 @@ namespace val
         }
     }
 
+	Semantics::Semantics(const std::string& filename) : filename(filename)
+    {}
+
     std::vector<Command> Semantics::AnalyzePrepareCommands(const Statement& AST)
     {
         if (not AST.option_is_Block()) 
@@ -1498,6 +1501,7 @@ namespace val
         }
 
         bool returns = true, changed = false;
+        auto matched_type_name = ExprToStr(view.matched_expr());
         for (size_t i = 0; i < view.size(); i++)
         {
             if (not view.cases(i).view_CaseClause().case_expr().option_is_VarName()
@@ -1506,7 +1510,6 @@ namespace val
 				throw SemanticException("Case Clause Must be of the Form 'case <variant/option>:'", filename, CaseClauseStmt, GetLine(view.cases(i)));
             }
 
-			auto matched_type_name = ExprToStr(view.matched_expr());
             // std::cout << matched_type_name;
             VariableKind temp;
 
@@ -1523,7 +1526,7 @@ namespace val
                 Activate(matched_type_name);
             }
 
-            returns = returns && AnalyzeBlock(view.cases(i).view_CaseClause().case_body(), should_return, ret);
+            returns = AnalyzeBlock(view.cases(i).view_CaseClause().case_body(), should_return, ret) && returns;
             changed = true;
 			symbol_table[matched_type_name] = temp;
 
