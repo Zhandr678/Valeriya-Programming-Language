@@ -402,59 +402,59 @@ namespace val
     }
 
     // done
-    VariableKind Semantics::AnalyzeVarNameExpr(const Expression& varname_expr)
+    VariableKind Semantics::AnalyzeVarNameExpr(const Expression& varname_expr, size_t line)
     {
         if (not varname_expr.option_is_VarName()) 
         { 
-            throw SemanticException("Unexpected Option " + varname_expr.sel(), filename, VarNameExpr, 0); 
+            throw SemanticException("Unexpected Option " + varname_expr.sel(), filename, VarNameExpr, line); 
         }
         const auto& view_varname = varname_expr.view_VarName();
 
         if (not symbol_table.contains(view_varname.name()) || not active[view_varname.name()])
         {
-            throw SemanticException("Variable " + view_varname.name() + " does not Exist", filename, VarNameExpr, 0);
+            throw SemanticException("Variable " + view_varname.name() + " does not Exist", filename, VarNameExpr, line);
         }
         
         return symbol_table.at(view_varname.name());
     }
 
     // done
-    VariableKind Semantics::AnalyzeArrayCallExpr(const Expression& array_call)
+    VariableKind Semantics::AnalyzeArrayCallExpr(const Expression& array_call, size_t line)
     {
         if (not array_call.option_is_ArrayIndex()) 
         {
-            throw SemanticException("Unexpected Option " + array_call.sel(), filename, ArrayIndexExpr, 0);
+            throw SemanticException("Unexpected Option " + array_call.sel(), filename, ArrayIndexExpr, line);
         }
         const auto& view_arr_call = array_call.view_ArrayIndex();
         
-        auto at_expr = AnalyzeExpression(view_arr_call.at());
+        auto at_expr = AnalyzeExpression(view_arr_call.at(), line);
         if (std::holds_alternative <ArrayKind>(at_expr))
         {
-            throw SemanticException("The Bracket Expression Must be Evaluated to int, not ArrayKind", filename, ArrayIndexExpr, 0); // at must be uint
+            throw SemanticException("The Bracket Expression Must be Evaluated to int, not ArrayKind", filename, ArrayIndexExpr, line); // at must be uint
         }
 
         if (not std::get <ObjectKind>(at_expr).is_primitive)
         {
-            throw SemanticException("The Bracket Expression Must be Evaluated to int, not " + std::get <ObjectKind>(at_expr).type_name, filename, ArrayIndexExpr, 0); // at must be uint
+            throw SemanticException("The Bracket Expression Must be Evaluated to int, not " + std::get <ObjectKind>(at_expr).type_name, filename, ArrayIndexExpr, line); // at must be uint
         }
 
         if (std::get <ObjectKind>(at_expr).type_name != "uint" && std::get <ObjectKind>(at_expr).type_name != "int")
         {
-            throw SemanticException("The Bracket Expression Must be Evaluated to int, not " + std::get <ObjectKind>(at_expr).type_name, filename, ArrayIndexExpr, 0); // at must be uint, or int >= 0 smh
+            throw SemanticException("The Bracket Expression Must be Evaluated to int, not " + std::get <ObjectKind>(at_expr).type_name, filename, ArrayIndexExpr, line); // at must be uint, or int >= 0 smh
         }
 
-        auto arr_call = AnalyzeExpression(view_arr_call.array_expr());
+        auto arr_call = AnalyzeExpression(view_arr_call.array_expr(), line);
 
         if (not std::holds_alternative <ArrayKind>(arr_call))
         {
-            throw SemanticException("A Subscripted Value is not Array, but " + std::get <ObjectKind>(arr_call).type_name, filename, ArrayIndexExpr, 0);
+            throw SemanticException("A Subscripted Value is not Array, but " + std::get <ObjectKind>(arr_call).type_name, filename, ArrayIndexExpr, line);
         }
 
         return std::get <ArrayKind>(arr_call).of_kind;
     }
 
     // done
-    VariableKind Semantics::AnalyzeLiterals(const Expression& any_literal_expr)
+    VariableKind Semantics::AnalyzeLiterals(const Expression& any_literal_expr, size_t line)
     {
         switch (any_literal_expr.sel())
         {
@@ -475,48 +475,48 @@ namespace val
     }
 
     // done
-    VariableKind Semantics::AnalyzeStructFieldCallExpr(const Expression& field_call)
+    VariableKind Semantics::AnalyzeStructFieldCallExpr(const Expression& field_call, size_t line)
     {
         if (not field_call.option_is_FieldCall()) 
         {
-            throw SemanticException("Unexpected Option " + field_call.sel(), filename, FieldCallExpr, 0);
+            throw SemanticException("Unexpected Option " + field_call.sel(), filename, FieldCallExpr, line);
         }
 
         const auto& view_fcall = field_call.view_FieldCall();
         auto if_property = ExprToStr(view_fcall.caller());
-        auto kind_of_caller = (symbol_table.contains(if_property) && active[if_property]) ? symbol_table.at(if_property) : AnalyzeExpression(view_fcall.caller());
+        auto kind_of_caller = (symbol_table.contains(if_property) && active[if_property]) ? symbol_table.at(if_property) : AnalyzeExpression(view_fcall.caller(), line);
 
         if (not view_fcall.field().option_is_VarName() && not view_fcall.field().option_is_ArrayIndex())
         {
-            throw SemanticException("A Field Must be a Name", filename, FieldCallExpr, 0);
+            throw SemanticException("A Field Must be a Name", filename, FieldCallExpr, line);
         }
 
         std::string name_of_field = view_fcall.field().option_is_VarName() ? 
             view_fcall.field().view_VarName().name() : view_fcall.field().view_ArrayIndex().array_expr().view_VarName().name();
         if (std::holds_alternative <ArrayKind>(kind_of_caller))
         {
-            throw SemanticException("Array Fields Cannot be Accessed by Field Name", filename, FieldCallExpr, 0); // arrays cannot be accessed by field name
+            throw SemanticException("Array Fields Cannot be Accessed by Field Name", filename, FieldCallExpr, line); // arrays cannot be accessed by field name
         }
 
         const auto& struct_kind = std::get <ObjectKind>(kind_of_caller);
         if (struct_kind.is_primitive) 
         { 
-            throw SemanticException("Primitive Types Cannot be Accessed by Field Name", filename, FieldCallExpr, 0); // primitive type cannot be accessed by field name
+            throw SemanticException("Primitive Types Cannot be Accessed by Field Name", filename, FieldCallExpr, line); // primitive type cannot be accessed by field name
         }
 
         if (not type_table.contains(struct_kind.type_name) || not active[struct_kind.type_name])
         {
-            throw SemanticException("A Type " + struct_kind.type_name + " does not Exist", filename, FieldCallExpr, 0); // Type does not exists
+            throw SemanticException("A Type " + struct_kind.type_name + " does not Exist", filename, FieldCallExpr, line); // Type does not exists
         }
 
         if (not std::holds_alternative <StructType>(type_table.at(struct_kind.type_name)))
         {
-            throw SemanticException("A Type " + struct_kind.type_name + " is not a Struct Type", filename, FieldCallExpr, 0); // field call on non-ADT
+            throw SemanticException("A Type " + struct_kind.type_name + " is not a Struct Type", filename, FieldCallExpr, line); // field call on non-ADT
         }
         
         if (not std::get <StructType>(type_table.at(struct_kind.type_name)).fields.contains(name_of_field))
         {
-            throw SemanticException("A Field " + name_of_field + " does not Exist in " + struct_kind.type_name, filename, FieldCallExpr, 0); // no such field
+            throw SemanticException("A Field " + name_of_field + " does not Exist in " + struct_kind.type_name, filename, FieldCallExpr, line); // no such field
         }
 
         if (view_fcall.field().option_is_ArrayIndex())
@@ -528,73 +528,73 @@ namespace val
     }
 
     // check with match
-    VariableKind Semantics::AnalyzePropertyFieldCallExpr(const Expression& field_call, const std::string& active_option)
+    VariableKind Semantics::AnalyzePropertyFieldCallExpr(const Expression& field_call, const std::string& active_option, size_t line)
     {
         if (not field_call.option_is_FieldCall()) 
         { 
-            throw SemanticException("Unexpected Option " + field_call.sel(), filename, FieldCallExpr, 0); 
+            throw SemanticException("Unexpected Option " + field_call.sel(), filename, FieldCallExpr, line); 
         }
         const auto& view_fcall = field_call.view_FieldCall();
 
         if (not view_fcall.field().option_is_VarName())
         {
-            throw SemanticException("A Field Must be a Name", filename, FieldCallExpr, 0); // field must be a name
+            throw SemanticException("A Field Must be a Name", filename, FieldCallExpr, line); // field must be a name
         }
 
         std::string name_of_field = view_fcall.field().view_VarName().name();
         
-        auto kind_of_caller = AnalyzeExpression(view_fcall.caller());
+        auto kind_of_caller = AnalyzeExpression(view_fcall.caller(), line);
         if (std::holds_alternative <ArrayKind>(kind_of_caller))
         {
-            throw SemanticException("Array Fields Cannot be Accessed by Field Name", filename, FieldCallExpr, 0); // arrays cannot be accessed by field name
+            throw SemanticException("Array Fields Cannot be Accessed by Field Name", filename, FieldCallExpr, line); // arrays cannot be accessed by field name
         }
 
         const auto& prop_kind = std::get <ObjectKind>(kind_of_caller);
         if (prop_kind.is_primitive)
         {
-            throw SemanticException("Primitive Types Cannot be Accessed by Field Name", filename, FieldCallExpr, 0); // primitive type cannot be accessed by field name
+            throw SemanticException("Primitive Types Cannot be Accessed by Field Name", filename, FieldCallExpr, line); // primitive type cannot be accessed by field name
         }
 
         if (not std::holds_alternative <PropertyType>(type_table.at(prop_kind.type_name)))
         {
-            throw SemanticException("A Type " + prop_kind.type_name + " is not a Struct Type", filename, FieldCallExpr, 0); // field call on non-ADT
+            throw SemanticException("A Type " + prop_kind.type_name + " is not a Struct Type", filename, FieldCallExpr, line); // field call on non-ADT
         }
 
         if (not std::get <PropertyType>(type_table.at(prop_kind.type_name)).options.contains(active_option))
         {
-            throw SemanticException("An Option " + active_option + " does not Exist in " + prop_kind.type_name, filename, FieldCallExpr, 0); // unknown option for property std::get <std::shared_ptr <ObjectKind>>(kind_of_caller)->type_name;
+            throw SemanticException("An Option " + active_option + " does not Exist in " + prop_kind.type_name, filename, FieldCallExpr, line); // unknown option for property std::get <std::shared_ptr <ObjectKind>>(kind_of_caller)->type_name;
         }
 
         return std::get <PropertyType>(type_table.at(prop_kind.type_name)).options.at(active_option).fields.at(name_of_field);
     }
 
     // done
-    VariableKind Semantics::AnalyzeFnCallExpr(const Expression& fn_call)
+    VariableKind Semantics::AnalyzeFnCallExpr(const Expression& fn_call, size_t line)
     {
         if (not fn_call.option_is_FnCall()) 
         { 
-            throw SemanticException("Unexpected Option " + fn_call.sel(), filename, FnCallExpr, 0);
+            throw SemanticException("Unexpected Option " + fn_call.sel(), filename, FnCallExpr, line);
         }
 
         const auto& view_fncall = fn_call.view_FnCall();
 
         if (not fn_table.contains(view_fncall.fn_name())) 
         { 
-            throw SemanticException("Function " + view_fncall.fn_name() + " does not Exist", filename, FnCallExpr, 0);
+            throw SemanticException("Function " + view_fncall.fn_name() + " does not Exist", filename, FnCallExpr, line);
         }
 
         if (fn_table.at(view_fncall.fn_name()).order_param.size() != view_fncall.size())
         {
-            throw SemanticException("Unexpected Number of Arguments for " + view_fncall.fn_name(), filename, FnCallExpr, 0);
+            throw SemanticException("Unexpected Number of Arguments for " + view_fncall.fn_name(), filename, FnCallExpr, line);
         }
 
         for (size_t i = 0; i < view_fncall.size(); i++)
         {
             if (not CanBeAssigned( 
                 fn_table.at(view_fncall.fn_name()).param_symbol_table.at(fn_table.at(view_fncall.fn_name()).order_param[i]).kind,
-                AnalyzeExpression(view_fncall.args(i)))
+                AnalyzeExpression(view_fncall.args(i), line))
             ) {
-                throw SemanticException("Expression at position " + std::to_string(i) + " does not Match with " + view_fncall.fn_name() + "'s Arguments", filename, FnCallExpr, 0);
+                throw SemanticException("Expression at position " + std::to_string(i) + " does not Match with " + view_fncall.fn_name() + "'s Arguments", filename, FnCallExpr, line);
             }
         }
 
@@ -612,17 +612,17 @@ namespace val
     }
 
     // done
-    VariableKind Semantics::AnalyzeBinopExpr(const Expression& binop_expr)
+    VariableKind Semantics::AnalyzeBinopExpr(const Expression& binop_expr, size_t line)
     {
         if (not binop_expr.option_is_Binary()) 
         {
-            throw SemanticException("Unexpected Option " + binop_expr.sel(), filename, BinaryExpr, 0);
+            throw SemanticException("Unexpected Option " + binop_expr.sel(), filename, BinaryExpr, line);
         }
 
         const auto& view_binop = binop_expr.view_Binary();
 
-        auto left_kind = AnalyzeExpression(view_binop.lhs());
-        auto right_kind = AnalyzeExpression(view_binop.rhs());
+        auto left_kind = AnalyzeExpression(view_binop.lhs(), line);
+        auto right_kind = AnalyzeExpression(view_binop.rhs(), line);
 
         if (IsNull(left_kind) && not IsNull(right_kind))
         {
@@ -641,14 +641,14 @@ namespace val
         {
             if (view_binop.op() != "-")
             {
-                throw SemanticException("Unexpected Operands for Operator " + view_binop.op(), filename, BinaryExpr, 0);
+                throw SemanticException("Unexpected Operands for Operator " + view_binop.op(), filename, BinaryExpr, line);
             }
 
             if (std::holds_alternative <ArrayKind>(left_kind) && std::holds_alternative <ObjectKind>(right_kind))
             {
                 if (std::get <ObjectKind>(right_kind).type_name != "uint" && std::get <ObjectKind>(right_kind).type_name != "int")
                 {
-                    throw SemanticException("Unexpected Operands for Operator " + view_binop.op(), filename, BinaryExpr, 0);
+                    throw SemanticException("Unexpected Operands for Operator " + view_binop.op(), filename, BinaryExpr, line);
                 }
 
                 return left_kind;
@@ -658,20 +658,20 @@ namespace val
             {
                 if (std::get <ObjectKind>(left_kind).type_name != "uint" && std::get <ObjectKind>(left_kind).type_name != "int")
                 {
-                    throw SemanticException("Unexpected Operands for Operator " + view_binop.op(), filename, BinaryExpr, 0);
+                    throw SemanticException("Unexpected Operands for Operator " + view_binop.op(), filename, BinaryExpr, line);
                 }
 
                 return right_kind;
             }
 
-            throw SemanticException("Unexpected Operands for Operator " + view_binop.op(), filename, BinaryExpr, 0);
+            throw SemanticException("Unexpected Operands for Operator " + view_binop.op(), filename, BinaryExpr, line);
         }
 
         if (view_binop.op() == "==" || view_binop.op() == "!=")
         {
             if (not CanBeAssigned(left_kind, right_kind))
             {
-                throw SemanticException("Unexpected Operands for Operator " + view_binop.op(), filename, BinaryExpr, 0);
+                throw SemanticException("Unexpected Operands for Operator " + view_binop.op(), filename, BinaryExpr, line);
             }
 
             return ObjectKind{ true, "bool" };
@@ -681,13 +681,13 @@ namespace val
         {
             if (std::holds_alternative <ArrayKind>(left_kind))
             {
-                throw SemanticException("Unexpected Operands for Operator " + view_binop.op(), filename, BinaryExpr, 0);
+                throw SemanticException("Unexpected Operands for Operator " + view_binop.op(), filename, BinaryExpr, line);
             }
 
             if (not IsNumeric(std::get <ObjectKind>(left_kind)) ||
                 not IsNumeric(std::get <ObjectKind>(right_kind)))
             {
-                throw SemanticException("Unexpected Operands for Operator " + view_binop.op(), filename, BinaryExpr, 0);
+                throw SemanticException("Unexpected Operands for Operator " + view_binop.op(), filename, BinaryExpr, line);
             }
 
             return ObjectKind{ true, "bool" };
@@ -714,14 +714,14 @@ namespace val
                 return ObjectKind{ true, "double" };
             }
 
-            throw SemanticException("Unexpected Operands for Operator " + view_binop.op(), filename, BinaryExpr, 0);
+            throw SemanticException("Unexpected Operands for Operator " + view_binop.op(), filename, BinaryExpr, line);
         }
 
         else if (view_binop.op() == "*" || view_binop.op() == "**")
         {
             if (std::holds_alternative <ArrayKind>(left_kind))
             {
-                throw SemanticException("Unexpected Operands for Operator " + view_binop.op(), filename, BinaryExpr, 0);
+                throw SemanticException("Unexpected Operands for Operator " + view_binop.op(), filename, BinaryExpr, line);
             }
 
             if (IsNumeric(std::get <ObjectKind>(left_kind)) && IsNumeric(std::get <ObjectKind>(right_kind)))
@@ -729,14 +729,14 @@ namespace val
                 return ObjectKind{ true, "double" };
             }
 
-            throw SemanticException("Unexpected Operands for Operator " + view_binop.op(), filename, BinaryExpr, 0);
+            throw SemanticException("Unexpected Operands for Operator " + view_binop.op(), filename, BinaryExpr, line);
         }
 
         else if (view_binop.op() == "%")
         {
             if (std::holds_alternative <ArrayKind>(left_kind))
             {
-                throw SemanticException("Unexpected Operands for Operator " + view_binop.op(), filename, BinaryExpr, 0);
+                throw SemanticException("Unexpected Operands for Operator " + view_binop.op(), filename, BinaryExpr, line);
             }
 
             if (std::get <ObjectKind>(left_kind).type_name == "uint" || std::get <ObjectKind>(left_kind).type_name == "int" &&
@@ -745,14 +745,14 @@ namespace val
                 return ObjectKind{ true, "int" };
             }
 
-            throw SemanticException("Unexpected Operands for Operator " + view_binop.op(), filename, BinaryExpr, 0);
+            throw SemanticException("Unexpected Operands for Operator " + view_binop.op(), filename, BinaryExpr, line);
         }
 
         else if (view_binop.op() == "&&" || view_binop.op() == "||")
         {
             if (std::holds_alternative <ArrayKind>(left_kind))
             {
-                throw SemanticException("Unexpected Operands for Operator " + view_binop.op(), filename, BinaryExpr, 0);
+                throw SemanticException("Unexpected Operands for Operator " + view_binop.op(), filename, BinaryExpr, line);
             }
 
             if (std::get <ObjectKind>(left_kind).type_name == "bool" && std::get <ObjectKind>(right_kind).type_name == "bool")
@@ -760,14 +760,14 @@ namespace val
                 return ObjectKind{ true, "bool" };
             }
 
-            throw SemanticException("Unexpected Operands for Operator " + view_binop.op(), filename, BinaryExpr, 0);
+            throw SemanticException("Unexpected Operands for Operator " + view_binop.op(), filename, BinaryExpr, line);
         }
 
         else if (view_binop.op() == "&" || view_binop.op() == "|" || view_binop.op() == "^" || view_binop.op() == "<<" || view_binop.op() == ">>")
         {
             if (std::holds_alternative <ArrayKind>(left_kind))
             {
-                throw SemanticException("Unexpected Operands for Operator " + view_binop.op(), filename, BinaryExpr, 0);
+                throw SemanticException("Unexpected Operands for Operator " + view_binop.op(), filename, BinaryExpr, line);
             }
             
             if ((std::get <ObjectKind>(left_kind).type_name == "uint" || std::get <ObjectKind>(left_kind).type_name == "int") && 
@@ -776,25 +776,25 @@ namespace val
                 return ObjectKind{ true, "uint" };
             }
 
-            throw SemanticException("Unexpected Operands for Operator " + view_binop.op(), filename, BinaryExpr, 0);
+            throw SemanticException("Unexpected Operands for Operator " + view_binop.op(), filename, BinaryExpr, line);
         }
 
-        throw SemanticException("Unexpected Operands for Operator " + view_binop.op(), filename, BinaryExpr, 0);
+        throw SemanticException("Unexpected Operands for Operator " + view_binop.op(), filename, BinaryExpr, line);
     }
 
     // done
-    VariableKind Semantics::AnalyzeUnaryExpr(const Expression& unary_expr)
+    VariableKind Semantics::AnalyzeUnaryExpr(const Expression& unary_expr, size_t line)
     {
         if (not unary_expr.option_is_Unary()) 
         {
-            throw SemanticException("Unexpected Option " + unary_expr.sel(), filename, UnaryExpr, 0);
+            throw SemanticException("Unexpected Option " + unary_expr.sel(), filename, UnaryExpr, line);
         }
 
         const auto& view_unary = unary_expr.view_Unary();
 
         if (view_unary.op() == "-")
         {
-            auto expr = AnalyzeExpression(view_unary.expr());
+            auto expr = AnalyzeExpression(view_unary.expr(), line);
             if (CanBeAssigned(ObjectKind{ true, "int" }, expr))
             {
                 return ObjectKind{ true, "int" };
@@ -804,40 +804,40 @@ namespace val
                 return ObjectKind{ true, "double" };
             }
             
-            throw SemanticException("Cannot Have '-' on Non Numerical Types", filename, UnaryExpr, 0);
+            throw SemanticException("Cannot Have '-' on Non Numerical Types", filename, UnaryExpr, line);
         }
         else if (view_unary.op() == "!")
         {
-            if (CanBeAssigned(ObjectKind{ true, "bool" }, AnalyzeExpression(view_unary.expr())))
+            if (CanBeAssigned(ObjectKind{ true, "bool" }, AnalyzeExpression(view_unary.expr(), line)))
             {
                 return ObjectKind{ true, "bool" };
             }
             
-            throw SemanticException("Cannot Have '!' on Non Boolean Types", filename, UnaryExpr, 0);
+            throw SemanticException("Cannot Have '!' on Non Boolean Types", filename, UnaryExpr, line);
         }
 
-        throw SemanticException("Unknown Unary Operator", filename, UnaryExpr, 0);
+        throw SemanticException("Unknown Unary Operator", filename, UnaryExpr, line);
     }
 
     // done
-    VariableKind Semantics::AnalyzeInitListExpr(const Expression& init_list_expr)
+    VariableKind Semantics::AnalyzeInitListExpr(const Expression& init_list_expr, size_t line)
     {
         if (not init_list_expr.option_is_InitList()) 
         { 
-            throw SemanticException("Unexpected Option " + init_list_expr.sel(), filename, InitListExpr, 0);
+            throw SemanticException("Unexpected Option " + init_list_expr.sel(), filename, InitListExpr, line);
         }
 
         const auto& view_inlist = init_list_expr.view_InitList();
 
         if (view_inlist.size() == 0) { return ObjectKind{ true, "void" }; }
 
-        auto base_kind = AnalyzeExpression(view_inlist.exprs(0));
+        auto base_kind = AnalyzeExpression(view_inlist.exprs(0), line);
 
         for (size_t i = 1; i < view_inlist.size(); i++)
         {
-            if (not CanBeAssigned(base_kind, AnalyzeExpression(view_inlist.exprs(i))))
+            if (not CanBeAssigned(base_kind, AnalyzeExpression(view_inlist.exprs(i), line)))
             {
-                throw SemanticException("Array Types Differ", filename, InitListExpr, 0);
+                throw SemanticException("Array Types Differ", filename, InitListExpr, line);
             }
         }
 
@@ -845,68 +845,68 @@ namespace val
     }
 
     // done
-    VariableKind Semantics::AnalyzeStructInitExpr(const Expression& struct_init_expr)
+    VariableKind Semantics::AnalyzeStructInitExpr(const Expression& struct_init_expr, size_t line)
     {
         if (not struct_init_expr.option_is_StructInit()) 
         {
-            throw SemanticException("Unexpected Option " + struct_init_expr.sel(), filename, StructInitExpr, 0);
+            throw SemanticException("Unexpected Option " + struct_init_expr.sel(), filename, StructInitExpr, line);
         }
         
         const auto& view = struct_init_expr.view_StructInit();
         
         if (not type_table.contains(view.struct_name()))
         {
-            throw SemanticException("A Type " + view.struct_name() + " does not Exist", filename, StructInitExpr, 0);
+            throw SemanticException("A Type " + view.struct_name() + " does not Exist", filename, StructInitExpr, line);
         }
         if (not std::holds_alternative <StructType>(type_table.at(view.struct_name())))
         {
-            throw SemanticException("A Type " + view.struct_name() + " is not a Struct Type", filename, StructInitExpr, 0);
+            throw SemanticException("A Type " + view.struct_name() + " is not a Struct Type", filename, StructInitExpr, line);
         }
 		if (view.size() != std::get <StructType>(type_table.at(view.struct_name())).order_fields.size())
         {
-            throw SemanticException("Unexpected Number of Arguments for " + view.struct_name(), filename, StructInitExpr, 0);
+            throw SemanticException("Unexpected Number of Arguments for " + view.struct_name(), filename, StructInitExpr, line);
         }
         
         for (size_t i = 0; i < view.size(); i++)
         {
             if (not CanBeAssigned( 
                 std::get <StructType>(type_table.at(view.struct_name())).fields.at(std::get <StructType>(type_table.at(view.struct_name())).order_fields[i]),
-                AnalyzeExpression(view.inits(i))))
+                AnalyzeExpression(view.inits(i), line)))
             {
-                throw SemanticException("Expression at position " + std::to_string(i) + " does not Match with Type " + std::get <StructType>(type_table.at(view.struct_name())).order_fields[i] + "'s Arguments", filename, StructInitExpr, 0);;
+                throw SemanticException("Expression at position " + std::to_string(i) + " does not Match with Type " + std::get <StructType>(type_table.at(view.struct_name())).order_fields[i] + "'s Arguments", filename, StructInitExpr, line);
             }
         }
 
         return ObjectKind{ IsPrimitive(struct_init_expr.view_StructInit().struct_name()), struct_init_expr.view_StructInit().struct_name() };
     }
 
-    VariableKind Semantics::AnalyzeExpression(const Expression& expr)
+    VariableKind Semantics::AnalyzeExpression(const Expression& expr, size_t line)
     {
         switch (expr.sel())
         {
         case selector::EmptyExpr:
             return ObjectKind{ true, "void" };
         case selector::VarNameExpr:
-            return AnalyzeVarNameExpr(expr);
+            return AnalyzeVarNameExpr(expr, line);
         case selector::ArrayIndexExpr:
-            return AnalyzeArrayCallExpr(expr);
+            return AnalyzeArrayCallExpr(expr, line);
         case selector::BoolLiteralExpr: case selector::CharLiteralExpr: case selector::DoubleLiteralExpr:
         case selector::IntLiteralExpr: case selector::StringLiteralExpr:
-            return AnalyzeLiterals(expr);
+            return AnalyzeLiterals(expr, line);
         case selector::FieldCallExpr:
-            return AnalyzeStructFieldCallExpr(expr);
+            return AnalyzeStructFieldCallExpr(expr, line);
         case selector::FnCallExpr:
-            return AnalyzeFnCallExpr(expr);
+            return AnalyzeFnCallExpr(expr, line);
         case selector::BinaryExpr:
-            return AnalyzeBinopExpr(expr);
+            return AnalyzeBinopExpr(expr, line);
         case selector::UnaryExpr:
-            return AnalyzeUnaryExpr(expr);
+            return AnalyzeUnaryExpr(expr, line);
         case selector::InitListExpr:
-            return AnalyzeInitListExpr(expr);
+            return AnalyzeInitListExpr(expr, line);
         case selector::StructInitExpr:
-            return AnalyzeStructInitExpr(expr);
+            return AnalyzeStructInitExpr(expr, line);
         default:
-            throw SemanticException("Unknown Expression", filename, StructInitExpr, 0);
+            throw SemanticException("Unknown Expression", filename, StructInitExpr, line);
         }
     }
 
@@ -915,10 +915,10 @@ namespace val
     {
         if (not expr_call_stmt.option_is_ExprCall()) 
         {
-            throw SemanticException("Unexpected Option " + expr_call_stmt.sel(), filename, ExprCallStmt, 0);
+            throw SemanticException("Unexpected Option " + expr_call_stmt.sel(), filename, ExprCallStmt, GetLine(expr_call_stmt));
         }
 
-        AnalyzeExpression(expr_call_stmt.view_ExprCall().expr());
+        AnalyzeExpression(expr_call_stmt.view_ExprCall().expr(), expr_call_stmt.view_ExprCall().line());
     }
 
     // done
@@ -943,7 +943,7 @@ namespace val
 
         if (not CanBeAssigned(ObjectKind{
             IsPrimitive(view.type_name()), view.type_name() },
-            AnalyzeExpression(view.init_expr())
+            AnalyzeExpression(view.init_expr(), view.line())
         ))
         {
             throw SemanticException("Expression does not Deduce to Type " + view.type_name(), filename, VarInitStmt, GetLine(var_init_stmt));
@@ -981,7 +981,7 @@ namespace val
                 view.type_info().view_VarInit().type_name()
                 }
             },
-            AnalyzeExpression(view.init_expr())
+            AnalyzeExpression(view.init_expr(), view.line())
             ))
         {
 			throw SemanticException("Expression does not Deduce to Array of Type " + view.type_info().view_VarInit().type_name(), filename, ArrayInitStmt, GetLine(array_init_stmt));
@@ -1017,11 +1017,11 @@ namespace val
                 AnalyzeWhileLoop(seq.statements(i), should_return, ret);
                 break;
             case selector::MakeStructStmt:
-                throw SemanticException("MakeStruct is not Allowed Inside a Block", filename, MakeStructStmt, 0);
+                throw SemanticException("MakeStruct is not Allowed Inside a Block", filename, MakeStructStmt, seq.statements(i).view_MakeStruct().line());
             case selector::MakeEnumStmt:
-                throw SemanticException("MakeEnum is not Allowed Inside a Block", filename, MakeEnumStmt, 0);
+                throw SemanticException("MakeEnum is not Allowed Inside a Block", filename, MakeEnumStmt, seq.statements(i).view_MakeEnum().line());
             case selector::MakePropertyStmt:
-                throw SemanticException("MakeProperty is not Allowed Inside a Block", filename, MakePropertyStmt, 0);
+                throw SemanticException("MakeProperty is not Allowed Inside a Block", filename, MakePropertyStmt, seq.statements(i).view_MakeProperty().line());
             case selector::MatchStmt:
             {
                 bool res = AnalyzeMatch(seq.statements(i), should_return, ret);
@@ -1071,7 +1071,7 @@ namespace val
                     throw SemanticException("Return Statement Outside Function Body", filename, ReturnStmt, GetLine(seq.statements(i)));
                 }
 
-                else if (not CanBeAssigned(ret, AnalyzeExpression(seq.statements(i).view_Return().return_expr())))
+                else if (not CanBeAssigned(ret, AnalyzeExpression(seq.statements(i).view_Return().return_expr(), seq.statements(i).view_Return().line())))
                 {
                     throw SemanticException("Cannot Deduce Return Type to Function's", filename, ReturnStmt, GetLine(seq.statements(i)));
                 }
@@ -1107,7 +1107,7 @@ namespace val
 
         const auto& view = while_loop_stmt.view_WhileLoop();
 
-        if (not CanBeAssigned(ObjectKind{ true, "bool" }, AnalyzeExpression(view.cond())))
+        if (not CanBeAssigned(ObjectKind{ true, "bool" }, AnalyzeExpression(view.cond(), view.line())))
         {
 			throw SemanticException("While Loop Condition Must be of Type bool", filename, WhileLoopStmt, GetLine(while_loop_stmt));
         }
@@ -1165,7 +1165,7 @@ namespace val
         }
 
         if (not view.check().option_is_EmptyLiteral() &&
-            not CanBeAssigned(ObjectKind{true,"bool"}, AnalyzeExpression(view.check())))
+            not CanBeAssigned(ObjectKind{true,"bool"}, AnalyzeExpression(view.check(), view.line())))
         {
             throw SemanticException("For Loop's Check MUST Deduce to bool", filename, ForLoopStmt, GetLine(for_stmt));
         }
@@ -1303,7 +1303,7 @@ namespace val
                 }
 
                 if (field_view.init_expr().option_is_EmptyLiteral()) { continue; }
-                if (not CanBeAssigned(ObjectKind{ IsPrimitive(field_view.type_name()), field_view.type_name() }, AnalyzeExpression(field_view.init_expr())))
+                if (not CanBeAssigned(ObjectKind{ IsPrimitive(field_view.type_name()), field_view.type_name() }, AnalyzeExpression(field_view.init_expr(), field_view.line())))
                 {
 					throw SemanticException("Expression does not Deduce to Type " + field_view.type_name(), filename, MakeStructStmt, GetLine(view.inits(i)));
                 }
@@ -1326,7 +1326,7 @@ namespace val
                 if (not CanBeAssigned(
                     ArrayKind{ ExprToStr(field_view.alloc_size()), field_view.is_dynamic(),
                     ObjectKind{ IsPrimitive(field_view.type_info().view_VarInit().type_name()), field_view.type_info().view_VarInit().type_name() } }, 
-                        AnalyzeExpression(field_view.init_expr())))
+                        AnalyzeExpression(field_view.init_expr(), field_view.line())))
                 {
 					throw SemanticException("Expression does not Deduce to Array of Type " + field_view.type_info().view_VarInit().type_name(), filename, MakeStructStmt, GetLine(view.inits(i)));
                 }
@@ -1360,7 +1360,7 @@ namespace val
                     throw SemanticException("A Type " + field_view.type_name() + " does not Exist", filename, MakePropertyStmt, GetLine(view.inits(i)));
                 }
                 if (field_view.init_expr().option_is_EmptyLiteral()) { continue; }
-                if (not CanBeAssigned(ObjectKind{ IsPrimitive(field_view.type_name()), field_view.type_name() }, AnalyzeExpression(field_view.init_expr())))
+                if (not CanBeAssigned(ObjectKind{ IsPrimitive(field_view.type_name()), field_view.type_name() }, AnalyzeExpression(field_view.init_expr(), field_view.line())))
                 {
                     throw SemanticException("Expression does not Deduce to Type " + field_view.type_name(), filename, MakePropertyStmt, GetLine(view.inits(i)));
                 }
@@ -1380,7 +1380,7 @@ namespace val
                 if (not CanBeAssigned(
                     ArrayKind{ ExprToStr(field_view.alloc_size()), field_view.is_dynamic(),
                     ObjectKind{ IsPrimitive(field_view.type_info().view_VarInit().type_name()), field_view.type_info().view_VarInit().type_name() } },
-                    AnalyzeExpression(field_view.init_expr())))
+                    AnalyzeExpression(field_view.init_expr(), field_view.line())))
                 {
                     throw SemanticException("Expression does not Deduce to Array of Type " + field_view.type_info().view_VarInit().type_name(), filename, MakePropertyStmt, GetLine(view.inits(i)));
                 }
@@ -1458,7 +1458,7 @@ namespace val
 
         const auto& view = match_stmt.view_Match();
 
-        auto matched_expr_kind = AnalyzeExpression(view.matched_expr());
+        auto matched_expr_kind = AnalyzeExpression(view.matched_expr(), view.line());
 
         if (std::holds_alternative <ArrayKind>(matched_expr_kind)) 
         {
@@ -1481,7 +1481,6 @@ namespace val
 				throw SemanticException("Case Clause Must be of the Form 'case <variant/option>:'", filename, CaseClauseStmt, GetLine(view.cases(i)));
             }
 
-            // std::cout << matched_type_name;
             VariableKind temp;
 
             if (not view.cases(i).view_CaseClause().is_wildcard())
@@ -1519,7 +1518,7 @@ namespace val
 
         const auto& view = assign_stmt.view_Assignment();
 
-        if (not CanBeAssigned(AnalyzeExpression(view.dest()), AnalyzeExpression(view.expr())))
+        if (not CanBeAssigned(AnalyzeExpression(view.dest(), view.line()), AnalyzeExpression(view.expr(), view.line())))
         {
 			throw SemanticException("Cannot Assign Expression", filename, AssignmentStmt, GetLine(assign_stmt));
         }
@@ -1534,7 +1533,7 @@ namespace val
 
         const auto& view = elif_stmt.view_ElifCondition();
 
-        if (not CanBeAssigned(ObjectKind{ true, "bool" }, AnalyzeExpression(view.elif_cond())))
+        if (not CanBeAssigned(ObjectKind{ true, "bool" }, AnalyzeExpression(view.elif_cond(), view.line())))
         {
 			throw SemanticException("Elif Condition Must be of Type bool", filename, ElifConditionStmt, GetLine(elif_stmt));
         }
@@ -1551,7 +1550,7 @@ namespace val
 
         const auto& view = cond_stmt.view_Condition();
 
-        if (not CanBeAssigned(ObjectKind{ true, "bool" }, AnalyzeExpression(view.if_cond())))
+        if (not CanBeAssigned(ObjectKind{ true, "bool" }, AnalyzeExpression(view.if_cond(), view.line())))
         {
 			throw SemanticException("If Condition Must be of Type bool", filename, ConditionStmt, GetLine(cond_stmt));
         }
@@ -1603,11 +1602,11 @@ namespace val
                 AnalyzeWhileLoop(seq.statements(i), should_return, ret);
                 break;
             case selector::MakeStructStmt:
-				throw SemanticException("MakeStruct is not Allowed Inside a Block", filename, MakeStructStmt, 0);
+				throw SemanticException("MakeStruct is not Allowed Inside a Block", filename, MakeStructStmt, seq.statements(i).view_MakeStruct().line());
             case selector::MakeEnumStmt:
-				throw SemanticException("MakeEnum is not Allowed Inside a Block", filename, MakeEnumStmt, 0);
+				throw SemanticException("MakeEnum is not Allowed Inside a Block", filename, MakeEnumStmt, seq.statements(i).view_MakeEnum().line());
             case selector::MakePropertyStmt:
-				throw SemanticException("MakeProperty is not Allowed Inside a Block", filename, MakePropertyStmt, 0);
+				throw SemanticException("MakeProperty is not Allowed Inside a Block", filename, MakePropertyStmt, seq.statements(i).view_MakeProperty().line());
             case selector::MatchStmt:
             {
                 bool res = AnalyzeMatch(seq.statements(i), should_return, ret);
@@ -1657,7 +1656,7 @@ namespace val
                     throw SemanticException("Return Statement Outside Function Body", filename, ReturnStmt, GetLine(seq.statements(i)));
                 }
 
-                else if (not CanBeAssigned(ret, AnalyzeExpression(seq.statements(i).view_Return().return_expr())))
+                else if (not CanBeAssigned(ret, AnalyzeExpression(seq.statements(i).view_Return().return_expr(), seq.statements(i).view_Return().line())))
                 {
                     throw SemanticException("Cannot Deduce Return Type to Function's", filename, ReturnStmt, GetLine(seq.statements(i)));
                 }

@@ -42,17 +42,17 @@ namespace val
 #pragma endregion
 
 #pragma region("Semantics")
-		VariableKind AnalyzeVarNameExpr(const Expression& varname_expr);
-		VariableKind AnalyzeArrayCallExpr(const Expression& array_call);
-		VariableKind AnalyzeLiterals(const Expression& any_literal_expr);
-		VariableKind AnalyzeStructFieldCallExpr(const Expression& field_call);
-		VariableKind AnalyzePropertyFieldCallExpr(const Expression& field_call, const std::string& active_option);
-		VariableKind AnalyzeFnCallExpr(const Expression& fn_call);
-		VariableKind AnalyzeBinopExpr(const Expression& binop_expr);
-		VariableKind AnalyzeUnaryExpr(const Expression& unary_expr);
-		VariableKind AnalyzeInitListExpr(const Expression& init_list_expr);
-		VariableKind AnalyzeStructInitExpr(const Expression& struct_init_expr);
-		VariableKind AnalyzeExpression(const Expression& expr);
+		VariableKind AnalyzeVarNameExpr(const Expression& varname_expr, size_t line);
+		VariableKind AnalyzeArrayCallExpr(const Expression& array_call, size_t line);
+		VariableKind AnalyzeLiterals(const Expression& any_literal_expr, size_t line);
+		VariableKind AnalyzeStructFieldCallExpr(const Expression& field_call, size_t line);
+		VariableKind AnalyzePropertyFieldCallExpr(const Expression& field_call, const std::string& active_option, size_t line);
+		VariableKind AnalyzeFnCallExpr(const Expression& fn_call, size_t line);
+		VariableKind AnalyzeBinopExpr(const Expression& binop_expr, size_t line);
+		VariableKind AnalyzeUnaryExpr(const Expression& unary_expr, size_t line);
+		VariableKind AnalyzeInitListExpr(const Expression& init_list_expr, size_t line);
+		VariableKind AnalyzeStructInitExpr(const Expression& struct_init_expr, size_t line);
+		VariableKind AnalyzeExpression(const Expression& expr, size_t line);
 		
 		void AnalyzeExprCall(const Statement& expr_call_stmt);
 
