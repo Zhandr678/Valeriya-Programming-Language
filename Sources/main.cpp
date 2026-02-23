@@ -44,7 +44,7 @@ int main(int argc, char* argv[])
 
 		auto AST = parser.ConstructAST();
 		val::Semantics(val_source_path.filename().string()).Analysis(AST);
-
+		val::CGenerator::GenerateC_IR(AST, val_source_path.string());
 	}
 	catch (const std::logic_error& e)
 	{

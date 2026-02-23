@@ -74,14 +74,14 @@ namespace val
 
 		void AnalyzeMakeEnum(const Statement& make_enum_stmt);
 
-		bool AnalyzeMatch(const Statement& match_stmt, bool should_return, const VariableKind& ret);
+		bool AnalyzeMatch(const Statement& match_stmt, bool should_return, const VariableKind& ret, bool in_loop = false);
 
 		void AnalyzeAssignment(const Statement& assign_stmt);
 
-		bool AnalyzeElif(const Statement& elif_stmt, bool should_return, const VariableKind& ret);
-		bool AnalyzeCondition(const Statement& cond_stmt, bool should_return, const VariableKind& ret);
+		bool AnalyzeElif(const Statement& elif_stmt, bool should_return, const VariableKind& ret, bool in_loop = false);
+		bool AnalyzeCondition(const Statement& cond_stmt, bool should_return, const VariableKind& ret, bool in_loop = false);
 
-		bool AnalyzeBlock(const Statement& block_stmt, bool should_return, const VariableKind& ret);
+		bool AnalyzeBlock(const Statement& block_stmt, bool should_return, const VariableKind& ret, bool in_loop = false);
 		
 #pragma endregion
 

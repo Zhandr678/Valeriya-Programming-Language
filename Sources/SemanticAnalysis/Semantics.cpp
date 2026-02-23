@@ -1024,7 +1024,7 @@ namespace val
                 throw SemanticException("MakeProperty is not Allowed Inside a Block", filename, MakePropertyStmt, seq.statements(i).view_MakeProperty().line());
             case selector::MatchStmt:
             {
-                bool res = AnalyzeMatch(seq.statements(i), should_return, ret);
+                bool res = AnalyzeMatch(seq.statements(i), should_return, ret, true);
 
                 if (should_return)
                 {
@@ -1037,7 +1037,7 @@ namespace val
                 break;
             case selector::ConditionStmt:
             {
-                bool res = AnalyzeCondition(seq.statements(i), should_return, ret);
+                bool res = AnalyzeCondition(seq.statements(i), should_return, ret, true);
 
                 if (should_return)
                 {
@@ -1052,7 +1052,7 @@ namespace val
                 break;
             case selector::BlockOfStmt:
             {
-                bool res = AnalyzeBlock(seq.statements(i), should_return, ret);
+                bool res = AnalyzeBlock(seq.statements(i), should_return, ret, true);
 
                 if (should_return)
                 {
@@ -1449,7 +1449,7 @@ namespace val
         AddType(view.enum_name(), ConstructEnumType(make_enum_stmt));
     }
 
-    bool Semantics::AnalyzeMatch(const Statement& match_stmt, bool should_return, const VariableKind& ret)
+    bool Semantics::AnalyzeMatch(const Statement& match_stmt, bool should_return, const VariableKind& ret, bool in_loop)
     {
         if (not match_stmt.option_is_Match()) 
         {
@@ -1496,7 +1496,7 @@ namespace val
                 Activate(matched_type_name);
             }
 
-            returns = AnalyzeBlock(view.cases(i).view_CaseClause().case_body(), should_return, ret) && returns;
+            returns = AnalyzeBlock(view.cases(i).view_CaseClause().case_body(), should_return, ret, in_loop) && returns;
             changed = true;
 			symbol_table[matched_type_name] = temp;
 
@@ -1524,7 +1524,7 @@ namespace val
         }
     }
 
-    bool Semantics::AnalyzeElif(const Statement& elif_stmt, bool should_return, const VariableKind& ret)
+    bool Semantics::AnalyzeElif(const Statement& elif_stmt, bool should_return, const VariableKind& ret, bool in_loop)
     {
         if (not elif_stmt.option_is_ElifCondition()) 
         {
@@ -1538,10 +1538,10 @@ namespace val
 			throw SemanticException("Elif Condition Must be of Type bool", filename, ElifConditionStmt, GetLine(elif_stmt));
         }
 
-        return AnalyzeBlock(view.elif_body(), should_return, ret);
+        return AnalyzeBlock(view.elif_body(), should_return, ret, in_loop);
     }
 
-    bool Semantics::AnalyzeCondition(const Statement& cond_stmt, bool should_return, const VariableKind& ret)
+    bool Semantics::AnalyzeCondition(const Statement& cond_stmt, bool should_return, const VariableKind& ret, bool in_loop)
     {
         if (not cond_stmt.option_is_Condition()) 
         {
@@ -1556,26 +1556,26 @@ namespace val
         }
 
 
-        bool if_returns = AnalyzeBlock(view.if_body(), should_return, ret);
+        bool if_returns = AnalyzeBlock(view.if_body(), should_return, ret, in_loop);
 
         bool elif_returns = true;
         bool changed = false;
         for (size_t i = 0; i < view.size(); i++)
         {
-            elif_returns = elif_returns && AnalyzeElif(view.elif_stmt(i), should_return, ret);
+            elif_returns = elif_returns && AnalyzeElif(view.elif_stmt(i), should_return, ret, in_loop);
             changed = true;
         }
 
         bool else_returns = false;
         if (not view.else_body().option_is_Empty())
         {
-            else_returns = AnalyzeBlock(view.else_body(), should_return, ret);
+            else_returns = AnalyzeBlock(view.else_body(), should_return, ret, in_loop);
         }
 
         return else_returns ? if_returns && ((elif_returns && changed) || (not changed)) : false;
     }
 
-    bool Semantics::AnalyzeBlock(const Statement& block_stmt, bool should_return, const VariableKind& ret)
+    bool Semantics::AnalyzeBlock(const Statement& block_stmt, bool should_return, const VariableKind& ret, bool in_loop)
     {
         if (not block_stmt.option_is_Block())
         {
@@ -1665,7 +1665,10 @@ namespace val
                 break;
             }
             default:
-				throw SemanticException("Unexpected Statement", filename, BlockOfStmt, GetLine(seq.statements(i)));
+                if (not in_loop || not (seq.statements(i).option_is_Break() || seq.statements(i).option_is_Continue()))
+                {
+                    throw SemanticException("Unexpected Statement", filename, BlockOfStmt, GetLine(seq.statements(i)));
+                }
             }
         }
 
