@@ -48,6 +48,8 @@ namespace val
 		case selector::EmptyStmt:
 			return stmt.view_Empty().line();
         }
+
+        return -1;
     }
 
 	Semantics::Semantics(const std::string& filename) : filename(filename)
@@ -68,9 +70,17 @@ namespace val
             {
             case selector::VarInitStmt:
                 AnalyzeVarInit(seq.statements(i));
+                compile_info.lifetime_st[seq.statements(i).view_VarInit().var_name()].push_back(
+                    IsPrimitive(std::get <ObjectKind>(symbol_table[seq.statements(i).view_VarInit().var_name()]).type_name) ?
+                    (std::get <ObjectKind>(symbol_table[seq.statements(i).view_VarInit().var_name()]).type_name == "string" ? 
+                        FieldType::String : FieldType::Primitive) : FieldType::ADT
+                );
                 break;
             case selector::ArrayInitStmt:
                 AnalyzeArrayInit(seq.statements(i));
+                compile_info.lifetime_st[seq.statements(i).view_ArrayInit().type_info().view_VarInit().var_name()].push_back(
+                    FieldType::Array
+                );
                 break;
             case selector::WhileLoopStmt:
                 AnalyzeWhileLoop(seq.statements(i), false, {});
@@ -111,18 +121,23 @@ namespace val
         }
     }
 
-    std::string ExprToStr(const Expression& expr)
+    CompileInfo&& Semantics::GetCompileInfo() noexcept
+    {
+        return std::move(compile_info);
+    }
+
+    std::string Semantics::ExprToStr(const Expression& expr) const noexcept
     {
         switch (expr.sel())
         {
         case selector::EmptyExpr:
-            return "null";
+            return "NULL";
         case selector::VarNameExpr:
             return expr.view_VarName().name();
         case selector::ArrayIndexExpr:
             return ExprToStr(expr.view_ArrayIndex().array_expr()) + "[" + ExprToStr(expr.view_ArrayIndex().at()) + "]";
         case selector::BoolLiteralExpr: 
-            return expr.view_BoolLiteral().value() ? "true" : "false";
+            return expr.view_BoolLiteral().value() ? "1" : "0";
         case selector::CharLiteralExpr:
             return "'" + std::string(1, expr.view_CharLiteral().value()) + "'";
         case selector::DoubleLiteralExpr:
@@ -132,7 +147,7 @@ namespace val
         case selector::StringLiteralExpr:
             return expr.view_StringLiteral().value();
         case selector::FieldCallExpr:
-            return ExprToStr(expr.view_FieldCall().caller()) + ExprToStr(expr.view_FieldCall().field());
+            return ExprToStr(expr.view_FieldCall().caller()) + "->" + ExprToStr(expr.view_FieldCall().field());
         case selector::FnCallExpr:
         {
             std::string fn_call_str = expr.view_FnCall().fn_name() + "(";
@@ -157,15 +172,16 @@ namespace val
         }
         case selector::StructInitExpr:
         {
-            std::string struct_init_str = expr.view_StructInit().struct_name() + "{ ";
+            std::string struct_init_str = '(' + expr.view_StructInit().struct_name() + "){ ";
+            const std::vector <std::string>& struct_fields = std::get <StructType>(type_table.at(expr.view_StructInit().struct_name())).order_fields;
             for (size_t i = 0; i < expr.view_StructInit().size(); i++)
             {
-                struct_init_str += (ExprToStr(expr.view_StructInit().inits(i))) + ", ";
+                struct_init_str += ('.' + struct_fields[i] + " = ") + (ExprToStr(expr.view_StructInit().inits(i))) + ", ";
             }
             return struct_init_str + "}";
         }
         default:
-            return "null";
+            return "NULL";
         }
     }
 
@@ -201,6 +217,19 @@ namespace val
                         ObjectKind{ IsPrimitive(arr_init.type_info().view_VarInit().type_name()), arr_init.type_info().view_VarInit().type_name() }
                     }
                 });
+            }
+        }
+
+        for (auto& [field_name, kind] : stype.fields)
+        {
+            if (std::holds_alternative <ObjectKind>(kind))
+            {
+				compile_info.adts[stype.name][field_name] = IsPrimitive(std::get <ObjectKind>(kind).type_name) ? 
+                    (std::get <ObjectKind>(kind).type_name == "string" ? FieldType::String : FieldType::Primitive) : FieldType::ADT;
+            }
+            else 
+            {
+				compile_info.adts[stype.name][field_name] = FieldType::Array;
             }
         }
 
@@ -919,6 +948,7 @@ namespace val
         }
 
         AnalyzeExpression(expr_call_stmt.view_ExprCall().expr(), expr_call_stmt.view_ExprCall().line());
+        compile_info.valid_c_exprs.push(ExprToStr(expr_call_stmt.view_ExprCall().expr()));
     }
 
     // done
@@ -949,6 +979,10 @@ namespace val
             throw SemanticException("Expression does not Deduce to Type " + view.type_name(), filename, VarInitStmt, GetLine(var_init_stmt));
         }
 
+        std::string expr_str = ExprToStr(view.init_expr());
+        if (expr_str != "NULL") {
+            compile_info.valid_c_exprs.push(expr_str);
+        }
         AddVariable(var_init_stmt);
     }
 
@@ -987,6 +1021,15 @@ namespace val
 			throw SemanticException("Expression does not Deduce to Array of Type " + view.type_info().view_VarInit().type_name(), filename, ArrayInitStmt, GetLine(array_init_stmt));
         }
 
+        std::string expr_str = ExprToStr(view.alloc_size());
+        if (expr_str != "NULL") {
+            compile_info.valid_c_exprs.push(ExprToStr(view.alloc_size()));
+        }
+
+        expr_str = ExprToStr(view.init_expr());
+        if (expr_str != "NULL") {
+            compile_info.valid_c_exprs.push(ExprToStr(view.init_expr()));
+        }
         AddVariable(array_init_stmt);
     }
 
@@ -1007,10 +1050,16 @@ namespace val
             {
             case selector::VarInitStmt:
                 AnalyzeVarInit(seq.statements(i));
+                compile_info.lifetime_st[seq.statements(i).view_VarInit().var_name()].push_back(
+                    IsPrimitive(std::get <ObjectKind>(symbol_table[seq.statements(i).view_VarInit().var_name()]).type_name) ?
+                    (std::get <ObjectKind>(symbol_table[seq.statements(i).view_VarInit().var_name()]).type_name == "string" ?
+                        FieldType::String : FieldType::Primitive) : FieldType::ADT
+                );
                 block_allocated.push_back(seq.statements(i).view_VarInit().var_name());
                 break;
             case selector::ArrayInitStmt:
                 AnalyzeArrayInit(seq.statements(i));
+                compile_info.lifetime_st[seq.statements(i).view_ArrayInit().type_info().view_VarInit().var_name()].push_back(FieldType::Array);
                 block_allocated.push_back(seq.statements(i).view_ArrayInit().type_info().view_VarInit().var_name());
                 break;
             case selector::WhileLoopStmt:
@@ -1112,6 +1161,12 @@ namespace val
 			throw SemanticException("While Loop Condition Must be of Type bool", filename, WhileLoopStmt, GetLine(while_loop_stmt));
         }
 
+        std::string expr_str = ExprToStr(view.cond());
+
+        if (expr_str != "NULL") {
+            compile_info.valid_c_exprs.push(expr_str);
+        }
+
 		AnalyzeLoopBody(view.whileloop_body(), should_return, ret);
     }
 
@@ -1154,11 +1209,17 @@ namespace val
                 if (view.init_part().view_Block().statements(i).option_is_VarInit())
                 {
                     AnalyzeVarInit(view.init_part().view_Block().statements(i));
+                    compile_info.lifetime_st[view.init_part().view_Block().statements(i).view_VarInit().var_name()].push_back(
+                        IsPrimitive(std::get <ObjectKind>(symbol_table[view.init_part().view_Block().statements(i).view_VarInit().var_name()]).type_name) ?
+                        (std::get <ObjectKind>(symbol_table[view.init_part().view_Block().statements(i).view_VarInit().var_name()]).type_name == "string" ?
+                            FieldType::String : FieldType::Primitive) : FieldType::ADT
+                    );
                     block_allocated.push_back(view.init_part().view_Block().statements(i).view_VarInit().var_name());
                 }
                 else if (view.init_part().view_Block().statements(i).option_is_ArrayInit())
                 {
                     AnalyzeArrayInit(view.init_part().view_Block().statements(i));
+                    compile_info.lifetime_st[view.init_part().view_Block().statements(i).view_ArrayInit().type_info().view_VarInit().var_name()].push_back(FieldType::Array);
                     block_allocated.push_back(view.init_part().view_Block().statements(i).view_ArrayInit().type_info().view_VarInit().var_name());
                 }
             }
@@ -1168,6 +1229,11 @@ namespace val
             not CanBeAssigned(ObjectKind{true,"bool"}, AnalyzeExpression(view.check(), view.line())))
         {
             throw SemanticException("For Loop's Check MUST Deduce to bool", filename, ForLoopStmt, GetLine(for_stmt));
+        }
+
+        std::string expr_str = ExprToStr(view.check());
+        if (expr_str != "NULL") {
+            compile_info.valid_c_exprs.push(expr_str);
         }
 
         if (view.final_expr().option_is_Block())
@@ -1307,6 +1373,11 @@ namespace val
                 {
 					throw SemanticException("Expression does not Deduce to Type " + field_view.type_name(), filename, MakeStructStmt, GetLine(view.inits(i)));
                 }
+
+                std::string expr_str = ExprToStr(field_view.init_expr());
+                if (expr_str != "NULL") {
+                    compile_info.valid_c_exprs.push(expr_str);
+                }
             }
             else {
                 const auto& field_view = view.inits(i).view_ArrayInit();
@@ -1329,6 +1400,10 @@ namespace val
                         AnalyzeExpression(field_view.init_expr(), field_view.line())))
                 {
 					throw SemanticException("Expression does not Deduce to Array of Type " + field_view.type_info().view_VarInit().type_name(), filename, MakeStructStmt, GetLine(view.inits(i)));
+                }
+                std::string expr_str = ExprToStr(field_view.init_expr());
+                if (expr_str != "NULL") {
+                    compile_info.valid_c_exprs.push(expr_str);
                 }
             }
         }
@@ -1364,6 +1439,10 @@ namespace val
                 {
                     throw SemanticException("Expression does not Deduce to Type " + field_view.type_name(), filename, MakePropertyStmt, GetLine(view.inits(i)));
                 }
+                std::string expr_str = ExprToStr(field_view.init_expr());
+                if (expr_str != "NULL") {
+                    compile_info.valid_c_exprs.push(expr_str);
+                }
             }
             else {
                 const auto& field_view = view.inits(i).view_ArrayInit();
@@ -1383,6 +1462,10 @@ namespace val
                     AnalyzeExpression(field_view.init_expr(), field_view.line())))
                 {
                     throw SemanticException("Expression does not Deduce to Array of Type " + field_view.type_info().view_VarInit().type_name(), filename, MakePropertyStmt, GetLine(view.inits(i)));
+                }
+                std::string expr_str = ExprToStr(field_view.init_expr());
+                if (expr_str != "NULL") {
+                    compile_info.valid_c_exprs.push(expr_str);
                 }
             }
 
@@ -1459,6 +1542,10 @@ namespace val
         const auto& view = match_stmt.view_Match();
 
         auto matched_expr_kind = AnalyzeExpression(view.matched_expr(), view.line());
+        std::string expr_str = ExprToStr(view.matched_expr());
+        if (expr_str != "NULL") {
+            compile_info.valid_c_exprs.push(expr_str);
+        }
 
         if (std::holds_alternative <ArrayKind>(matched_expr_kind)) 
         {
@@ -1522,6 +1609,15 @@ namespace val
         {
 			throw SemanticException("Cannot Assign Expression", filename, AssignmentStmt, GetLine(assign_stmt));
         }
+
+        std::string expr_str = ExprToStr(view.dest());
+        if (expr_str != "NULL") {
+            compile_info.valid_c_exprs.push(expr_str);
+        }
+        expr_str = ExprToStr(view.expr());
+        if (expr_str != "NULL") {
+            compile_info.valid_c_exprs.push(expr_str);
+        }
     }
 
     bool Semantics::AnalyzeElif(const Statement& elif_stmt, bool should_return, const VariableKind& ret, bool in_loop)
@@ -1536,6 +1632,10 @@ namespace val
         if (not CanBeAssigned(ObjectKind{ true, "bool" }, AnalyzeExpression(view.elif_cond(), view.line())))
         {
 			throw SemanticException("Elif Condition Must be of Type bool", filename, ElifConditionStmt, GetLine(elif_stmt));
+        }
+        std::string expr_str = ExprToStr(view.elif_cond());
+        if (expr_str != "NULL") {
+            compile_info.valid_c_exprs.push(expr_str);
         }
 
         return AnalyzeBlock(view.elif_body(), should_return, ret, in_loop);
@@ -1554,7 +1654,10 @@ namespace val
         {
 			throw SemanticException("If Condition Must be of Type bool", filename, ConditionStmt, GetLine(cond_stmt));
         }
-
+        std::string expr_str = ExprToStr(view.if_cond());
+        if (expr_str != "NULL") {
+            compile_info.valid_c_exprs.push(expr_str);
+        }
 
         bool if_returns = AnalyzeBlock(view.if_body(), should_return, ret, in_loop);
 
@@ -1592,10 +1695,16 @@ namespace val
             {
             case selector::VarInitStmt:
                 AnalyzeVarInit(seq.statements(i));
-				block_allocated.push_back(seq.statements(i).view_VarInit().var_name());
+                compile_info.lifetime_st[seq.statements(i).view_VarInit().var_name()].push_back(
+                    IsPrimitive(std::get <ObjectKind>(symbol_table[seq.statements(i).view_VarInit().var_name()]).type_name) ?
+                    (std::get <ObjectKind>(symbol_table[seq.statements(i).view_VarInit().var_name()]).type_name == "string" ?
+                        FieldType::String : FieldType::Primitive) : FieldType::ADT
+                );
+                block_allocated.push_back(seq.statements(i).view_VarInit().var_name());
                 break;
             case selector::ArrayInitStmt:
                 AnalyzeArrayInit(seq.statements(i));
+                compile_info.lifetime_st[seq.statements(i).view_ArrayInit().type_info().view_VarInit().var_name()].push_back(FieldType::Array);
                 block_allocated.push_back(seq.statements(i).view_ArrayInit().type_info().view_VarInit().var_name());
                 break;
             case selector::WhileLoopStmt:

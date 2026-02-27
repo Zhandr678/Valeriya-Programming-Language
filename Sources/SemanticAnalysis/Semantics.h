@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Statements/Statement.h"
+#include "Commands/CompileInfo.h"
 #include <unordered_map>
 
 #include "Types.h"
@@ -20,6 +21,8 @@ namespace val
 
 		std::vector <std::string> block_allocated;
 
+		mutable CompileInfo compile_info;
+
 #pragma region("Type Table Helpers")
 		StructType ConstructStructType(const Statement& make_struct_stmt) const noexcept;
 		PropertyType ConstructPropertyType(const Statement& make_property_stmt) const noexcept;
@@ -28,6 +31,7 @@ namespace val
 
 		bool NameExists(const std::string& name) const noexcept;
 		bool TypeExists(const std::string& name) const noexcept;
+		std::string ExprToStr(const Expression& expr) const noexcept;
 
 		bool CanBeAssigned(const VariableKind& to, const VariableKind& from) noexcept;
 #pragma endregion
@@ -94,6 +98,7 @@ namespace val
 		Semantics(const std::string& filename);
 
 		void Analysis(const Statement& AST);
+		CompileInfo&& GetCompileInfo() noexcept;
 	};
 
 }

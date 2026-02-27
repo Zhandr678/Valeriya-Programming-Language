@@ -1,7 +1,22 @@
-while (true)
+struct Example
 {
-	if (false)
-	{
-		break;
-	}
+	int a;
+	double b;
+	char c;
 }
+
+struct Example2
+{
+	int a;
+	Example e1;
+}
+
+struct Example3
+{
+	int a;
+	Example2 e2;
+	Example3 e3;
+}
+
+Example e;
+int a = 7;
