@@ -32,6 +32,9 @@ namespace val
 		bool NameExists(const std::string& name) const noexcept;
 		bool TypeExists(const std::string& name) const noexcept;
 		std::string ExprToStr(const Expression& expr) const noexcept;
+		FieldType GetFieldType(const Statement& init) const noexcept;
+		FieldType GetFieldType(bool is_array, const std::string& type_name, const std::string& struct_name) const noexcept;
+		FieldType GetFieldType(const VariableKind& kind) const noexcept;
 
 		bool CanBeAssigned(const VariableKind& to, const VariableKind& from) noexcept;
 #pragma endregion

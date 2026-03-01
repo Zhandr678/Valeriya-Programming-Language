@@ -13,12 +13,12 @@ namespace val
 		cur_index[name]++;
 	}
 
-	FieldType CompileInfo::GetADTFieldInfo(const std::string& adt_name, const std::string& field_name) const noexcept
+	const std::unordered_map <std::string, FieldType>& CompileInfo::GetADTFieldInfo(const std::string& adt_name) const noexcept
 	{
-		return adts.at(adt_name).at(field_name);
+		return adts.at(adt_name);
 	}
 
-	std::string CompileInfo::GetNextExpr() const noexcept
+	std::pair <std::string, FieldType> CompileInfo::GetNextExpr() const noexcept
 	{
 		return valid_c_exprs.front();
 	}

@@ -1,22 +1,19 @@
-struct Example
+property prop
 {
-	int a;
-	double b;
-	char c;
+	opt1: {}
+	opt2: {}
+	opt3: {}
+	opt4: {}
 }
 
-struct Example2
+prop p = opt1{};
+
+match (p)
 {
-	int a;
-	Example e1;
+	case opt1 -> {}
+	case opt2 -> {}
+	case opt3 -> {}
+	case opt4 -> {}
 }
 
-struct Example3
-{
-	int a;
-	Example2 e2;
-	Example3 e3;
-}
-
-Example e;
-int a = 7;
+string s = "Hello " + "World";

@@ -6,7 +6,14 @@
 
 namespace val
 {
-	enum class FieldType { Primitive, Array, ADT, String };
+	struct FieldType 
+	{ 
+		enum class Type { 
+			Primitive, ArrayStruct, ArrayPrimitive, ArrayString, 
+			ArrayProperty, ArrayEnum, Struct, Property, Enum, String 
+		} typeclass;
+		std::string name;
+	};
 	
 	class CompileInfo
 	{
@@ -15,7 +22,7 @@ namespace val
 		std::unordered_map<std::string, size_t> cur_index;
 
 		std::unordered_map <std::string, std::unordered_map<std::string, FieldType>> adts;
-		std::queue <std::string> valid_c_exprs;
+		std::queue <std::pair <std::string, FieldType>> valid_c_exprs;
 		
 		friend class Semantics;
 	public:
@@ -23,9 +30,9 @@ namespace val
 
 		void AdvanceNextST(const std::string& name) noexcept;
 
-		FieldType GetADTFieldInfo(const std::string& adt_name, const std::string& field_name) const noexcept;
+		const std::unordered_map <std::string, FieldType>& GetADTFieldInfo(const std::string& adt_name) const noexcept;
 
-		std::string GetNextExpr() const noexcept;
+		std::pair <std::string, FieldType> GetNextExpr() const noexcept;
 
 		void PopExpr();
 	};
