@@ -49,6 +49,38 @@ int main(int argc, char* argv[])
 		
 		val::CGenerator codegen(semantics.GetCompileInfo());
 		codegen.GenerateC_IR(AST, val_source_path.string());
+
+		std::filesystem::path c_file = val_source_path;
+		c_file.replace_extension(".c");
+		std::filesystem::path output_binary = val_source_path;
+
+#ifdef _WIN32
+		output_binary.replace_extension(".exe");
+		std::string compile_cmd = std::format(
+			"clang \"{}\" -o \"{}\"",
+			c_file.string(),
+			output_binary.string()
+		);
+#else
+		output_binary.replace_extension(""); // no extension
+		std::string compile_cmd = std::format(
+			"clang \"{}\" -o \"{}\"",
+			c_file.string(),
+			output_binary.string()
+		);
+#endif
+
+		std::cout << "Compiling with: " << compile_cmd << "\n";
+
+		int compile_result = std::system(compile_cmd.c_str());
+
+		if (compile_result != 0)
+		{
+			std::cerr << "Compilation failed.\n";
+			return 1;
+		}
+
+		std::cout << "Binary generated: " << output_binary << "\n";
 	}
 	catch (const std::logic_error& e)
 	{

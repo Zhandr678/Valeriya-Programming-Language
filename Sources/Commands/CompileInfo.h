@@ -14,6 +14,13 @@ namespace val
 		} typeclass;
 		std::string name;
 	};
+
+	struct ExpressionInfo
+	{
+		std::string valid_expr;
+		FieldType expr_type;
+		bool is_lvalue;
+	};
 	
 	class CompileInfo
 	{
@@ -22,7 +29,8 @@ namespace val
 		std::unordered_map<std::string, size_t> cur_index;
 
 		std::unordered_map <std::string, std::unordered_map<std::string, FieldType>> adts;
-		std::queue <std::pair <std::string, FieldType>> valid_c_exprs;
+
+		std::queue <ExpressionInfo> valid_c_exprs;
 		
 		friend class Semantics;
 	public:
@@ -32,7 +40,7 @@ namespace val
 
 		const std::unordered_map <std::string, FieldType>& GetADTFieldInfo(const std::string& adt_name) const noexcept;
 
-		std::pair <std::string, FieldType> GetNextExpr() const noexcept;
+		ExpressionInfo GetNextExpr() const noexcept;
 
 		void PopExpr();
 	};

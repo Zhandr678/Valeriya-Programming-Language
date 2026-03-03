@@ -11,34 +11,55 @@
 
 namespace val
 {
-	void CGenerator::PushPropertyCaseClause(const std::string& prop_name, const std::string& prop_type, const Statement& case_clause, std::ofstream& to, size_t num_tabs) noexcept
+	void CGenerator::PushPropertyCaseClause(const std::string& prop_name, const std::string& prop_type, const Statement& case_clause, std::ofstream& to, size_t num_tabs, size_t order) noexcept
 	{
 		const auto& view = case_clause.view_CaseClause();
 
+		if (order == 0)
+		{
+			to << std::string(num_tabs, '\t') << "if (";
+		}
+		else if (order > 0)
+		{
+			to << std::string(num_tabs, '\t') << "else if (";
+		}
+
 		if (view.is_wildcard())
 		{
-			PushBlock(view.case_body(), to, num_tabs);
+			if (order > 0) {
+				to << "1)\n";
+			}
 		}
 		else {
-			to << std::string(num_tabs, '\t') << "if (" 
-				<< __IS_OPTION_CHECK_FN_NAME(prop_name, view.case_expr().view_VarName().name()) 
-				<< "(" << prop_type << "))\n";
-			PushBlock(view.case_body(), to, num_tabs);
+			to << __IS_OPTION_CHECK_FN_NAME(prop_name, view.case_expr().view_VarName().name()) 
+			<< "(" << prop_type << "))\n";	
 		}
+		PushBlock(view.case_body(), to, num_tabs);
 	}
 
-	void CGenerator::PushEnumCaseClause(const std::string& enum_expr, const Statement& case_clause, std::ofstream& to, size_t num_tabs) noexcept
+	void CGenerator::PushEnumCaseClause(const std::string& enum_expr, const Statement& case_clause, std::ofstream& to, size_t num_tabs, size_t order) noexcept
 	{
 		const auto& view = case_clause.view_CaseClause();
 
+		if (order == 0)
+		{
+			to << std::string(num_tabs, '\t') << "if (";
+		}
+		else if (order > 0)
+		{
+			to << std::string(num_tabs, '\t') << "else if (";
+		}
+
 		if (view.is_wildcard())
 		{
-			PushBlock(view.case_body(), to, num_tabs);
+			if (order > 0) {
+				to << "1)\n";
+			}
 		}
 		else {
-			to << std::string(num_tabs, '\t') << "if (" << enum_expr << " == " << view.case_expr().view_VarName().name() << ")\n";
-			PushBlock(view.case_body(), to, num_tabs);
+			to << enum_expr << " == " << view.case_expr().view_VarName().name() << ")\n";
 		}
+		PushBlock(view.case_body(), to, num_tabs);
 	}
 
 	void CGenerator::PushMatch(const Statement& match, std::ofstream& to, size_t num_tabs) noexcept
@@ -49,11 +70,11 @@ namespace val
 
 		for (size_t i = 0; i < view.size(); i++)
 		{
-			if (match_expr_info.second.typeclass == FieldType::Type::Property) {
-				PushPropertyCaseClause(match_expr_info.second.name, match_expr_info.first, view.cases(i), to, num_tabs);
+			if (match_expr_info.expr_type.typeclass == FieldType::Type::Property) {
+				PushPropertyCaseClause(match_expr_info.expr_type.name, match_expr_info.valid_expr, view.cases(i), to, num_tabs, i);
 			}
 			else {
-				PushEnumCaseClause(match_expr_info.first, view.cases(i), to, num_tabs);
+				PushEnumCaseClause(match_expr_info.valid_expr, view.cases(i), to, num_tabs, i);
 			}
 		}
 	}
@@ -61,13 +82,43 @@ namespace val
 	void CGenerator::PushMakeFunction(const Statement& make_fn, std::ofstream& to, size_t num_tabs) noexcept
 	{
 		const auto& view = make_fn.view_MakeFunction();
-		std::cout << "Skipping function\n";
+		
+		if (IsPrimitive(view.ret_type_name()) && view.ret_type_name() != "string")
+		{
+			to << std::string(num_tabs, '\t') << view.ret_type_name() << ' ' << view.fn_name() << '(';
+		}
+		else {
+			to << std::string(num_tabs, '\t') << view.ret_type_name() << "* " << view.fn_name() << '(';
+		}
+
+		for (size_t i = 0; i < view.size(); i++)
+		{
+			const auto& param = view.params(i).view_FnArgs();
+
+			if (i > 0) { to << ", "; }
+
+			if (param.is_array())
+			{
+				to << "/* Skipping for now */";
+			}
+			else if ((IsPrimitive(param.type_name()) && param.type_name() != "string") 
+				|| info.GetSymbolType(param.var_name()).typeclass == FieldType::Type::Enum)
+			{
+				to << param.type_name() << ' ' << param.var_name();
+			}
+			else {
+				to << param.type_name() << "* " << param.var_name();
+			}
+		}
+
+		to << ")\n";
+		PushBlock(view.fn_body(), to, num_tabs);
 	}
 
 	void CGenerator::PushReturn(const Statement& return_stmt, std::ofstream& to, size_t num_tabs) noexcept
 	{
 		const auto& view = return_stmt.view_Return();
-		to << std::string(num_tabs, '\t') << "return\n";
+		to << std::string(num_tabs, '\t') << "return";
 
 		if (not view.return_expr().option_is_EmptyLiteral())
 		{
@@ -95,6 +146,7 @@ namespace val
 #include <string.h>
 #include <inttypes.h>
 #define bool _Bool
+#define uint uint32_t
 
 typedef void (*_MVS_Deleter)(uintptr_t);
 
@@ -230,48 +282,151 @@ void MVS_RegisterNew(uintptr_t address, size_t size, _MVS_Deleter deleter)
     mu.size++;
 }
 
-bool MVS_DetachPointer(uintptr_t address)
-{
+bool MVS_DetachPointer(uintptr_t address) {
     size_t index = _hash_address(address, mu.capacity);
-
     MVSNode* current = mu.buckets[index];
     MVSNode* prev = NULL;
 
-    while (current)
-    {
-        if (current->key == address)
-        {
-            if (current->value.ref_count > 1)
-            {
+    while (current) {
+        if (current->key == address) {
+            if (current->value.ref_count > 1) {
                 current->value.ref_count--;
                 return 0;
             }
-            if (current->value.ref_count == 0)
-            {
-                return 0;
-            }
-
-            current->value.deleter(address);
 
             if (prev) { prev->next = current->next; }
             else { mu.buckets[index] = current->next; }
 
+            current->value.deleter(address);
             free(current);
             mu.size--;
-
             return 1;
         }
-
         prev = current;
         current = current->next;
     }
-
     return 0;
 }
 
 bool MVS_SameLoc(uintptr_t a, uintptr_t b)
 {
     return a == b;
+}
+
+typedef struct string {
+    size_t length;
+    char* data;
+} string;
+
+void xx_free_string(uintptr_t address)
+{
+    string* s = (string*)address;
+
+    if (s->data != NULL)
+        free(s->data);
+
+    free(s);
+}
+
+void xx_string_set(string* s, size_t index, char value)
+{
+    if (!s) return;
+    if (index >= s->length) return;
+
+    s->data[index] = value;
+}
+
+string* xx_init_string(const char* literal)
+{
+    string* s = malloc(sizeof(string));
+
+    s->length = strlen(literal);
+    s->data = malloc(s->length + 1);
+
+    memcpy(s->data, literal, s->length + 1);
+
+    return s;
+}
+
+string* xx_string_add(string* a, bool a_temp,
+    string* b, bool b_temp)
+{
+    if (!a || !b) return NULL;
+
+    string* result = malloc(sizeof(string));
+
+    result->length = a->length + b->length;
+    result->data = malloc(result->length + 1);
+
+    memcpy(result->data, a->data, a->length);
+    memcpy(result->data + a->length, b->data, b->length);
+
+    result->data[result->length] = '\0';
+
+    // free temporaries AFTER usage
+    if (a_temp)
+        xx_free_string((uintptr_t)a);
+
+    if (b_temp)
+        xx_free_string((uintptr_t)b);
+
+    return result;
+}
+
+string* xx_string_sub_right(string* s, bool s_temp, size_t n)
+{
+    if (!s) return NULL;
+
+    string* result;
+
+    if (n >= s->length)
+    {
+        result = xx_init_string("");
+    }
+    else
+    {
+        size_t new_len = s->length - n;
+
+        result = malloc(sizeof(string));
+        result->length = new_len;
+        result->data = malloc(new_len + 1);
+
+        memcpy(result->data, s->data, new_len);
+        result->data[new_len] = '\0';
+    }
+
+    if (s_temp)
+        xx_free_string((uintptr_t)s);
+
+    return result;
+}
+
+string* xx_string_sub_left(size_t n, string* s, bool s_temp)
+{
+    if (!s) return NULL;
+
+    string* result;
+
+    if (n >= s->length)
+    {
+        result = xx_init_string("");
+    }
+    else
+    {
+        size_t new_len = s->length - n;
+
+        result = malloc(sizeof(string));
+        result->length = new_len;
+        result->data = malloc(new_len + 1);
+
+        memcpy(result->data, s->data + n, new_len);
+        result->data[new_len] = '\0';
+    }
+
+    if (s_temp)
+        xx_free_string((uintptr_t)s);
+
+    return result;
 }
 
 )";
@@ -316,17 +471,19 @@ bool MVS_SameLoc(uintptr_t a, uintptr_t b)
 		}
 
 		out << "\n\nint main()\n{\n";
-		out << "\tMVS_Init();\n\n";
+		out << "\tMVS_Init();\n";
+
+		std::vector <std::string> alloc_ptrs;
 
 		for (size_t i = 0; i < view.size(); i++)
 		{
 			switch (view.statements(i).sel())
 			{
 			case selector::VarInitStmt:
-				PushVarInitialization(view.statements(i), out, 1);
+				PushVarInitialization(view.statements(i), out, 1, alloc_ptrs);
 				break;
 			case selector::ArrayInitStmt:
-				PushArrInitialization(view.statements(i), out, 1);
+				PushArrInitialization(view.statements(i), out, 1, alloc_ptrs);
 				break;
 			case selector::ConditionStmt:
 				PushCondition(view.statements(i), out, 1);
@@ -361,6 +518,7 @@ bool MVS_SameLoc(uintptr_t a, uintptr_t b)
 			}
 		}
 
+		PushCleanup(alloc_ptrs, out, 1);
 		out << "\tMVS_Destroy();\n";
 		out << "}\n";
 
@@ -373,12 +531,25 @@ bool MVS_SameLoc(uintptr_t a, uintptr_t b)
 
 	void CGenerator::PushAssignment(const Statement& assignment, std::ofstream& to, size_t num_tabs) noexcept
 	{
-		std::cout << "Skipping assignment\n";
+		const auto& view = assignment.view_Assignment();
+		
+		auto lhs_info = info.GetNextExpr();
+		info.PopExpr();
+		auto rhs_info = info.GetNextExpr();
+		info.PopExpr();
+
+		if (rhs_info.is_lvalue && view.dest().option_is_VarName()) 
+		{
+			to << std::string(num_tabs, '\t') << "MVS_DetachPointer((uintptr_t)" << rhs_info.valid_expr << ");\n";
+			to << std::string(num_tabs, '\t') << lhs_info.valid_expr << " = " << rhs_info.valid_expr << ";\n";
+			to << std::string(num_tabs, '\t') << "MVS_RegisterNew((uintptr_t)" << rhs_info.valid_expr << ", sizeof(" << rhs_info.expr_type.name << "), " << __FREE_FN_NAME(rhs_info.expr_type.name) << ");\n";
+		}
+		
 	}
 
 	void CGenerator::PushExprCall(const Statement& expr_call, std::ofstream& to, size_t num_tabs) noexcept
 	{
-		if (not expr_call.option_is_Empty()) 
+		if (expr_call.view_ExprCall().expr().option_is_FnCall()) 
 		{
 			to << std::string(num_tabs, '\t');
 			PushExpression(to);
@@ -391,15 +562,17 @@ bool MVS_SameLoc(uintptr_t a, uintptr_t b)
 		const auto& view = block.view_Block();
 		to << std::string(num_tabs, '\t') << "{\n";
 
+		std::vector <std::string> alloc_ptrs;
+
 		for (size_t i = 0; i < view.size(); i++)
 		{
 			switch (view.statements(i).sel())
 			{
 			case selector::VarInitStmt:
-				PushVarInitialization(view.statements(i), to, num_tabs + 1);
+				PushVarInitialization(view.statements(i), to, num_tabs + 1, alloc_ptrs);
 				break;
 			case selector::ArrayInitStmt:
-				PushArrInitialization(view.statements(i), to, num_tabs + 1);
+				PushArrInitialization(view.statements(i), to, num_tabs + 1, alloc_ptrs);
 				break;
 			case selector::ConditionStmt:
 				PushCondition(view.statements(i), to, num_tabs + 1);
@@ -408,8 +581,13 @@ bool MVS_SameLoc(uintptr_t a, uintptr_t b)
 				PushWhileLoop(view.statements(i), to, num_tabs + 1);
 				break;
 			case selector::ReturnStmt:
+			{
+				if (info.GetNextExpr().is_lvalue) {}
+				PushCleanup(alloc_ptrs, to, num_tabs + 1);
 				PushReturn(view.statements(i), to, num_tabs + 1);
-				break;
+				to << std::string(num_tabs, '\t') << "}\n";
+				return;
+			}
 			case selector::BreakStmt:
 				PushBreak(view.statements(i), to, num_tabs + 1);
 				break;
@@ -434,6 +612,7 @@ bool MVS_SameLoc(uintptr_t a, uintptr_t b)
 			}
 		}
 
+		PushCleanup(alloc_ptrs, to, num_tabs + 1);
 		to << std::string(num_tabs, '\t') << "}\n";
 	}
 
@@ -496,7 +675,8 @@ bool MVS_SameLoc(uintptr_t a, uintptr_t b)
 		{
 			if (view.inits(i).option_is_VarInit())
 			{
-				if (info.GetADTFieldInfo(view.struct_name()).at(view.inits(i).view_VarInit().var_name()).typeclass == FieldType::Type::Primitive)
+				if (info.GetADTFieldInfo(view.struct_name()).at(view.inits(i).view_VarInit().var_name()).typeclass == FieldType::Type::Primitive ||
+					info.GetADTFieldInfo(view.struct_name()).at(view.inits(i).view_VarInit().var_name()).typeclass == FieldType::Type::Enum)
 				{
 					to << std::string(num_tabs + 1, '\t') << view.inits(i).view_VarInit().type_name() << " " << view.inits(i).view_VarInit().var_name() << ";\n";
 				}
@@ -511,8 +691,9 @@ bool MVS_SameLoc(uintptr_t a, uintptr_t b)
 						to << std::string(num_tabs + 1, '\t') << view.inits(i).view_VarInit().type_name() << "* " << view.inits(i).view_VarInit().var_name() << ";\n";
 					}
 				}
-				else {
-					std::cout << "Skipping for now\n";
+				else
+				{
+					to << std::string(num_tabs + 1, '\t') << "string* " << view.inits(i).view_VarInit().var_name() << ";\n";
 				}
 			}
 		}
@@ -533,7 +714,9 @@ bool MVS_SameLoc(uintptr_t a, uintptr_t b)
 		{
 			if (view.inits(i).option_is_VarInit())
 			{
-				if (info.GetADTFieldInfo(view.struct_name()).at(view.inits(i).view_VarInit().var_name()).typeclass == FieldType::Type::Struct)
+				if (info.GetADTFieldInfo(view.struct_name()).at(view.inits(i).view_VarInit().var_name()).typeclass == FieldType::Type::Struct
+					|| info.GetADTFieldInfo(view.struct_name()).at(view.inits(i).view_VarInit().var_name()).typeclass == FieldType::Type::Property
+					|| info.GetADTFieldInfo(view.struct_name()).at(view.inits(i).view_VarInit().var_name()).typeclass == FieldType::Type::String)
 				{
 					to << std::string(num_tabs + 1, '\t') << "if (" << deleter_pointer << "->" << view.inits(i).view_VarInit().var_name() << " != NULL)\n";
 					to << std::string(num_tabs + 1, '\t') << "{\n";
@@ -570,7 +753,7 @@ bool MVS_SameLoc(uintptr_t a, uintptr_t b)
 				to << ", ";
 			}
 
-			if (type_info.typeclass == FieldType::Type::Primitive)
+			if (type_info.typeclass == FieldType::Type::Primitive || type_info.typeclass == FieldType::Type::Enum)
 			{
 				to << type_info.name << " " << var_name;
 			}
@@ -579,7 +762,7 @@ bool MVS_SameLoc(uintptr_t a, uintptr_t b)
 				to << type_info.name << "* " << var_name;
 			}
 			else {
-				// handle arrays and strings
+				to << "string* " << var_name;
 			}
 
 			i++;
@@ -593,12 +776,12 @@ bool MVS_SameLoc(uintptr_t a, uintptr_t b)
 
 		for (auto& [var_name, type_info] : info.GetADTFieldInfo(view.struct_name()))
 		{
-			if (type_info.typeclass == FieldType::Type::Primitive)
+			if (type_info.typeclass == FieldType::Type::Primitive || type_info.typeclass == FieldType::Type::Enum)
 			{
 				to << std::string(num_tabs + 1, '\t') << "xx_" << view.struct_name() << "_init_ptr->" <<
 					var_name << " = " << var_name << ";\n";
 			}
-			else if (type_info.typeclass == FieldType::Type::Struct || type_info.typeclass == FieldType::Type::Property)
+			else
 			{
 				to << std::string(num_tabs + 1, '\t') << "xx_" << view.struct_name() << "_init_ptr->" <<
 					var_name << " = " << var_name << ";\n";
@@ -627,6 +810,76 @@ bool MVS_SameLoc(uintptr_t a, uintptr_t b)
 		to << std::string(num_tabs, '\t') << "}\n\n";
 	}
 
+	void CGenerator::PushStructUpdate(const Statement& make_struct, std::ofstream& to, size_t num_tabs) noexcept
+	{
+		const auto& view = make_struct.view_MakeStruct();
+
+		to << std::string(num_tabs, '\t') << "void xx_update_" << view.struct_name() << "(" << view.struct_name() << "* dest";
+		for (size_t i = 0; i < view.size(); i++)
+		{
+			to << ", ";
+			if (view.inits(i).option_is_VarInit())
+			{
+				if (info.GetADTFieldInfo(view.struct_name()).at(view.inits(i).view_VarInit().var_name()).typeclass == FieldType::Type::Primitive ||
+					info.GetADTFieldInfo(view.struct_name()).at(view.inits(i).view_VarInit().var_name()).typeclass == FieldType::Type::Enum)
+				{
+					to << view.inits(i).view_VarInit().type_name() << " " << view.inits(i).view_VarInit().var_name();
+				}
+				else if (info.GetADTFieldInfo(view.struct_name()).at(view.inits(i).view_VarInit().var_name()).typeclass == FieldType::Type::Struct
+					|| info.GetADTFieldInfo(view.struct_name()).at(view.inits(i).view_VarInit().var_name()).typeclass == FieldType::Type::Property)
+				{
+					to << view.inits(i).view_VarInit().type_name() << "* " << view.inits(i).view_VarInit().var_name();
+				}
+				else
+				{
+					to << "string* " << view.inits(i).view_VarInit().var_name();
+				}
+			}
+			else {
+				to << "/* Skipping for now */";
+			}
+		}
+
+		to << ")\n";
+		to << std::string(num_tabs, '\t') << "{\n";
+		to << std::string(num_tabs + 1, '\t') << "if (dest == NULL) { return; }\n";
+
+		to << std::string(num_tabs + 1, '\t') << "if (MVS_RefCount((uintptr_t)dest) > 1) {\n";
+		to << std::string(num_tabs + 2, '\t') << view.struct_name() << "* new_dest = malloc(sizeof(" << view.struct_name() << "));\n";
+
+		for (size_t i = 0; i < view.size(); i++)
+		{
+			if (view.inits(i).option_is_VarInit())
+			{
+				if (info.GetADTFieldInfo(view.struct_name()).at(view.inits(i).view_VarInit().var_name()).typeclass == FieldType::Type::Primitive ||
+					info.GetADTFieldInfo(view.struct_name()).at(view.inits(i).view_VarInit().var_name()).typeclass == FieldType::Type::Enum)
+				{
+					to << std::string(num_tabs + 2, '\t') << "new_dest->" << view.inits(i).view_VarInit().var_name() << " = " << view.inits(i).view_VarInit().var_name() << ";\n";
+				}
+				else
+				{
+					to << std::string(num_tabs + 2, '\t') << "new_dest->" << view.inits(i).view_VarInit().var_name() << " = " << view.inits(i).view_VarInit().var_name() << ";\n";
+					to << std::string(num_tabs + 2, '\t') << "if (new_dest->" << view.inits(i).view_VarInit().var_name() << " != NULL) {\n";
+					to << std::string(num_tabs + 3, '\t') << "MVS_RegisterNew((uintptr_t)new_dest->" << view.inits(i).view_VarInit().var_name() << ", sizeof(" <<
+						info.GetADTFieldInfo(view.struct_name()).at(view.inits(i).view_VarInit().var_name()).name << "), "
+						<< __FREE_FN_NAME(info.GetADTFieldInfo(view.struct_name()).at(view.inits(i).view_VarInit().var_name()).name) << ");\n";
+					to << std::string(num_tabs + 2, '\t') << "}\n";
+				}
+			}
+		}
+		to << std::string(num_tabs + 2, '\t') << "MVS_DetachPointer((uintptr_t)dest);\n";
+		to << std::string(num_tabs + 2, '\t') << "*dest = *new_dest;\n";
+		to << std::string(num_tabs + 2, '\t') << "return;\n";
+		to << std::string(num_tabs + 1, '\t') << "}\n";
+
+		for (size_t i = 0; i < view.size(); i++)
+		{
+			to << std::string(num_tabs + 1, '\t') << "dest->" << view.inits(i).view_VarInit().var_name() << " = " << view.inits(i).view_VarInit().var_name() << ";\n";
+		}
+
+		to << std::string(num_tabs, '\t') << "}\n\n";
+	}
+
 	void CGenerator::PushMakeStruct(const Statement& make_struct, std::ofstream& to, size_t num_tabs) noexcept
 	{
 		const auto& view = make_struct.view_MakeStruct();
@@ -634,7 +887,7 @@ bool MVS_SameLoc(uintptr_t a, uintptr_t b)
 		PushStructDecl(make_struct, to, num_tabs);
 		PushStructDeleter(make_struct, to, num_tabs);
 		PushStructInit(make_struct, to, num_tabs);
-		// PushStructAssign(make_struct, to, num_tabs); do we need it?
+		PushStructUpdate(make_struct, to, num_tabs);
 	}
 
 	void CGenerator::PushMakeEnum(const Statement & make_enum, std::ofstream & to, size_t num_tabs) noexcept
@@ -794,11 +1047,11 @@ bool MVS_SameLoc(uintptr_t a, uintptr_t b)
 
 	void CGenerator::PushExpression(std::ofstream& to) noexcept
 	{
-		to << info.GetNextExpr().first;
+		to << info.GetNextExpr().valid_expr;
 		info.PopExpr();
 	}
 
-	void CGenerator::PushVarInitialization(const Statement& var_init, std::ofstream& to, size_t num_tabs) noexcept
+	void CGenerator::PushVarInitialization(const Statement& var_init, std::ofstream& to, size_t num_tabs, std::vector <std::string>& alloc_ptrs) noexcept
 	{
 		const auto& view = var_init.view_VarInit();
 
@@ -824,6 +1077,7 @@ bool MVS_SameLoc(uintptr_t a, uintptr_t b)
 		}
 		else if (info.GetSymbolType(view.var_name()).typeclass == FieldType::Type::Struct) 
 		{
+			alloc_ptrs.push_back(view.var_name());
 			to << std::string(num_tabs, '\t') << view.type_name() << "* " << view.var_name() << " = ";
 			if (not view.init_expr().option_is_EmptyLiteral()) 
 			{
@@ -841,6 +1095,7 @@ bool MVS_SameLoc(uintptr_t a, uintptr_t b)
 		}
 		else if (info.GetSymbolType(view.var_name()).typeclass == FieldType::Type::Property) 
 		{
+			alloc_ptrs.push_back(view.var_name());
 			to << std::string(num_tabs, '\t') << view.type_name() << "* " << view.var_name() << " = ";
 			if (view.init_expr().option_is_StructInit())
 			{
@@ -866,12 +1121,33 @@ bool MVS_SameLoc(uintptr_t a, uintptr_t b)
 			}
 		}
 		else {
-			to << "/* HERE SHOULD BE STRING INIT */\n";
+			alloc_ptrs.push_back(view.var_name());
+			to << std::string(num_tabs, '\t') << "string* " << view.var_name() << " = ";
+			if (not view.init_expr().option_is_EmptyLiteral()) 
+			{
+				PushExpression(to);
+				to << ";\n";
+			}
+			else {
+				to << "xx_init_string(\"\");\n";
+			}
+			to << std::string(num_tabs, '\t') << "MVS_RegisterNew((uintptr_t)" << view.var_name()
+				<< ", sizeof(string), xx_free_string);\n";
 		}
 	}
 
-	void CGenerator::PushArrInitialization(const Statement& arr_init, std::ofstream& to, size_t num_tabs) noexcept
+	void CGenerator::PushArrInitialization(const Statement& arr_init, std::ofstream& to, size_t num_tabs, std::vector <std::string>& alloc_ptrs) noexcept
 	{
+		const auto& view = arr_init.view_ArrayInit();
+		alloc_ptrs.push_back(view.type_info().view_VarInit().var_name());
 		std::cout << "Skipping arr init\n";
+	}
+
+	void CGenerator::PushCleanup(const std::vector<std::string>& alloc_ptrs, std::ofstream& to, size_t num_tabs) noexcept
+	{
+		for (const auto& ptr_name : alloc_ptrs)
+		{
+			to << std::string(num_tabs, '\t') << "MVS_DetachPointer((uintptr_t)" << ptr_name << ");\n";
+		}
 	}
 }

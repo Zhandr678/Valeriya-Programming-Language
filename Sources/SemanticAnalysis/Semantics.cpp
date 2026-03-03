@@ -143,6 +143,21 @@ namespace val
         }
     }
 
+    bool Semantics::IsLvalue(const Expression& e) const noexcept
+    {
+        switch (e.sel())
+        {
+        case selector::VarNameExpr:
+            return true;
+        case selector::ArrayIndexExpr:
+            return IsLvalue(e.view_ArrayIndex().array_expr());
+        case selector::FieldCallExpr:
+            return IsLvalue(e.view_FieldCall().caller());
+        default:
+            return false;
+        }
+    }
+
 
 	Semantics::Semantics(const std::string& filename) : filename(filename)
     {}
@@ -212,7 +227,7 @@ namespace val
         return std::move(compile_info);
     }
 
-    std::string Semantics::ExprToStr(const Expression& expr) const noexcept
+    std::string Semantics::ExprToStr(const Expression& expr, bool strf)
     {
         switch (expr.sel())
         {
@@ -221,30 +236,76 @@ namespace val
         case selector::VarNameExpr:
             return expr.view_VarName().name();
         case selector::ArrayIndexExpr:
+        {
             return ExprToStr(expr.view_ArrayIndex().array_expr()) + "[" + ExprToStr(expr.view_ArrayIndex().at()) + "]";
-        case selector::BoolLiteralExpr: 
+        }
+        case selector::BoolLiteralExpr:
             return expr.view_BoolLiteral().value() ? "1" : "0";
         case selector::CharLiteralExpr:
             return "'" + std::string(1, expr.view_CharLiteral().value()) + "'";
         case selector::DoubleLiteralExpr:
             return std::to_string(expr.view_DoubleLiteral().value());
-        case selector::IntLiteralExpr: 
+        case selector::IntLiteralExpr:
             return std::to_string(expr.view_IntLiteral().value());
         case selector::StringLiteralExpr:
-            return expr.view_StringLiteral().value();
+            if (strf) { return expr.view_StringLiteral().value(); }
+            return "xx_init_string(" + expr.view_StringLiteral().value() + ")";
         case selector::FieldCallExpr:
+        {
+            if (in_match && ExprToStr(expr.view_FieldCall().caller()) == active_prop)
+            {
+                return active_prop + "->opts." + active_opt + "_opt->" + ExprToStr(expr.view_FieldCall().field());
+            }
             return ExprToStr(expr.view_FieldCall().caller()) + "->" + ExprToStr(expr.view_FieldCall().field());
+        }
         case selector::FnCallExpr:
         {
             std::string fn_call_str = expr.view_FnCall().fn_name() + "(";
             for (size_t i = 0; i < expr.view_FnCall().size(); i++)
             {
-                fn_call_str += ExprToStr(expr.view_FnCall().args(i));
+                if (i != 0) { fn_call_str += ", "; }
+                if (expr.view_FnCall().fn_name() == "scanf" && i > 0)
+                {
+                    fn_call_str += "&";
+                }
+                fn_call_str += ExprToStr(expr.view_FnCall().args(i), 
+                    expr.view_FnCall().fn_name() == "printf" || expr.view_FnCall().fn_name() == "scanf");
             }
             return fn_call_str + ")";
         }
         case selector::BinaryExpr:
+        {
+            auto expr_left = AnalyzeExpression(expr.view_Binary().lhs(), 0);
+            auto expr_right = AnalyzeExpression(expr.view_Binary().rhs(), 0);
+            if (expr.view_Binary().op() == "+" && 
+                std::holds_alternative <ObjectKind>(expr_left) &&
+                std::get <ObjectKind>(expr_left).type_name == "string")
+            {
+                return "xx_string_add(" + 
+                    ExprToStr(expr.view_Binary().lhs()) + ", " + (IsLvalue(expr.view_Binary().lhs()) ? "0, " : "1, ") +
+                    ExprToStr(expr.view_Binary().rhs()) + ", " + (IsLvalue(expr.view_Binary().rhs()) ? "0)" : "1)");
+            }
+            
+            else if (expr.view_Binary().op() == "-" && 
+                (std::holds_alternative <ObjectKind>(expr_left) && std::get <ObjectKind>(expr_left).type_name == "string") &&
+                (std::holds_alternative <ObjectKind>(expr_right) && (std::get <ObjectKind>(expr_right).type_name == "int" || 
+                    std::get <ObjectKind>(expr_right).type_name == "uint")))
+            {
+                return "xx_string_sub_right(" + ExprToStr(expr.view_Binary().lhs()) + ", " + 
+                    (IsLvalue(expr.view_Binary().lhs()) ? "0, " : "1, ") + ExprToStr(expr.view_Binary().rhs()) + ')';
+            }
+
+            else if (expr.view_Binary().op() == "-" &&
+                (std::holds_alternative <ObjectKind>(expr_left) && (std::get <ObjectKind>(expr_left).type_name == "int" ||
+                    std::get <ObjectKind>(expr_left).type_name == "uint")) &&
+                (std::holds_alternative <ObjectKind>(expr_right) && std::get <ObjectKind>(expr_right).type_name == "string"))
+            {
+                return "xx_string_sub_left(" + ExprToStr(expr.view_Binary().lhs()) + 
+                    ExprToStr(expr.view_Binary().rhs()) + ", " + (IsLvalue(expr.view_Binary().rhs()) ? "0)" : "1)");
+            }
+
             return ExprToStr(expr.view_Binary().lhs()) + expr.view_Binary().op() + ExprToStr(expr.view_Binary().rhs());
+        }
         case selector::UnaryExpr:
             return expr.view_Unary().op() + ExprToStr(expr.view_Unary().expr());
         case selector::InitListExpr:
@@ -272,7 +333,7 @@ namespace val
         }
     }
 
-    StructType Semantics::ConstructStructType(const Statement& make_struct_stmt) const noexcept
+    StructType Semantics::ConstructStructType(const Statement& make_struct_stmt) noexcept
     {
         StructType stype;
         const auto& view = make_struct_stmt.view_MakeStruct();
@@ -322,7 +383,7 @@ namespace val
         return stype;
     }
 
-    PropertyType Semantics::ConstructPropertyType(const Statement& make_property_stmt) const noexcept
+    PropertyType Semantics::ConstructPropertyType(const Statement& make_property_stmt) noexcept
     {
         PropertyType ptype;
         const auto& view = make_property_stmt.view_MakeProperty();
@@ -338,7 +399,7 @@ namespace val
         return ptype;
     }
 
-    EnumType Semantics::ConstructEnumType(const Statement& make_enum_stmt) const noexcept
+    EnumType Semantics::ConstructEnumType(const Statement& make_enum_stmt) noexcept
     {
         EnumType etype;
         const auto& view = make_enum_stmt.view_MakeEnum();
@@ -353,7 +414,7 @@ namespace val
         return etype;
     }
 
-    FnTable Semantics::ConstructFn(const Statement& make_fn_stmt) const noexcept
+    FnTable Semantics::ConstructFn(const Statement& make_fn_stmt) noexcept
     {
         FnTable ftable;
         const auto& view = make_fn_stmt.view_MakeFunction();
@@ -497,7 +558,8 @@ namespace val
                         || std::get <ObjectKind>(from).type_name == "uint")) ||
 
                 (std::get <ObjectKind>(to).type_name == "int" &&
-                    std::get <ObjectKind>(from).type_name == "uint");
+                    std::get <ObjectKind>(from).type_name == "uint" ||
+                    std::get <ObjectKind>(from).type_name == "double");
         }
 
         else if (std::holds_alternative <ArrayKind>(to))
@@ -560,12 +622,17 @@ namespace val
 
         auto arr_call = AnalyzeExpression(view_arr_call.array_expr(), line);
 
-        if (not std::holds_alternative <ArrayKind>(arr_call))
+        if (std::holds_alternative <ArrayKind>(arr_call))
         {
-            throw SemanticException("A Subscripted Value is not Array, but " + std::get <ObjectKind>(arr_call).type_name, filename, ArrayIndexExpr, line);
+            return std::get <ArrayKind>(arr_call).of_kind;
+        }
+        if (std::holds_alternative <ObjectKind>(arr_call) && std::get <ObjectKind>(arr_call).type_name == "string")
+        {
+            return ObjectKind{ true, "char" };
         }
 
-        return std::get <ArrayKind>(arr_call).of_kind;
+        throw SemanticException("A Subscripted Value is not Array or String, but " + std::get <ObjectKind>(arr_call).type_name, filename, ArrayIndexExpr, line);
+        
     }
 
     // done
@@ -686,34 +753,132 @@ namespace val
     // done
     VariableKind Semantics::AnalyzeFnCallExpr(const Expression& fn_call, size_t line)
     {
-        if (not fn_call.option_is_FnCall()) 
-        { 
-            throw SemanticException("Unexpected Option " + fn_call.sel(), filename, FnCallExpr, line);
+        if (not fn_call.option_is_FnCall())
+        {
+            throw SemanticException(
+                "Unexpected Option " + fn_call.sel(),
+                filename,
+                FnCallExpr,
+                line
+            );
         }
 
         const auto& view_fncall = fn_call.view_FnCall();
+        const std::string& fn_name = view_fncall.fn_name();
 
-        if (not fn_table.contains(view_fncall.fn_name())) 
-        { 
-            throw SemanticException("Function " + view_fncall.fn_name() + " does not Exist", filename, FnCallExpr, line);
+        if (fn_name == "printf")
+        {
+            if (view_fncall.size() == 0)
+            {
+                throw SemanticException(
+                    "printf requires at least a format string",
+                    filename,
+                    FnCallExpr,
+                    line
+                );
+            }
+
+            auto first_arg = AnalyzeExpression(view_fncall.args(0), line);
+            
+            if (std::holds_alternative <ObjectKind>(first_arg) &&
+                std::get<ObjectKind>(first_arg).type_name != "string")
+            {
+                throw SemanticException(
+                    "printf first argument must be string",
+                    filename,
+                    FnCallExpr,
+                    line
+                );
+            }
+
+            for (size_t i = 1; i < view_fncall.size(); i++)
+            {
+                AnalyzeExpression(view_fncall.args(i), line);
+            }
+
+            return ObjectKind{ true, "int" }; // printf returns int
         }
 
-        if (fn_table.at(view_fncall.fn_name()).order_param.size() != view_fncall.size())
+        if (fn_name == "scanf")
         {
-            throw SemanticException("Unexpected Number of Arguments for " + view_fncall.fn_name(), filename, FnCallExpr, line);
+            if (view_fncall.size() == 0)
+            {
+                throw SemanticException(
+                    "scanf requires at least a format string",
+                    filename,
+                    FnCallExpr,
+                    line
+                );
+            }
+
+            if (std::holds_alternative <ObjectKind>(AnalyzeExpression(view_fncall.args(0), line)) &&
+                std::get<ObjectKind>(AnalyzeExpression(view_fncall.args(0), line)).type_name != "string")
+            {
+                throw SemanticException(
+                    "scanf first argument must be string",
+                    filename,
+                    FnCallExpr,
+                    line
+                );
+            }
+
+            // Remaining args must be assignable (lvalues)
+            for (size_t i = 1; i < view_fncall.size(); i++)
+            {
+                if (!IsLvalue(view_fncall.args(i)))
+                {
+                    throw SemanticException(
+                        "scanf arguments must be assignable variables",
+                        filename,
+                        FnCallExpr,
+                        line
+                    );
+                }
+            }
+
+            return ObjectKind{ true, "int" }; // scanf returns int
+        }
+
+        if (not fn_table.contains(fn_name))
+        {
+            throw SemanticException(
+                "Function " + fn_name + " does not Exist",
+                filename,
+                FnCallExpr,
+                line
+            );
+        }
+
+        const auto& fn_info = fn_table.at(fn_name);
+
+        if (fn_info.order_param.size() != view_fncall.size())
+        {
+            throw SemanticException(
+                "Unexpected Number of Arguments for " + fn_name,
+                filename,
+                FnCallExpr,
+                line
+            );
         }
 
         for (size_t i = 0; i < view_fncall.size(); i++)
         {
-            if (not CanBeAssigned( 
-                fn_table.at(view_fncall.fn_name()).param_symbol_table.at(fn_table.at(view_fncall.fn_name()).order_param[i]).kind,
-                AnalyzeExpression(view_fncall.args(i), line))
-            ) {
-                throw SemanticException("Expression at position " + std::to_string(i) + " does not Match with " + view_fncall.fn_name() + "'s Arguments", filename, FnCallExpr, line);
+            if (not CanBeAssigned(
+                fn_info.param_symbol_table.at(fn_info.order_param[i]).kind,
+                AnalyzeExpression(view_fncall.args(i), line)
+            ))
+            {
+                throw SemanticException(
+                    "Expression at position " + std::to_string(i) +
+                    " does not Match with " + fn_name + "'s Arguments",
+                    filename,
+                    FnCallExpr,
+                    line
+                );
             }
         }
 
-        return fn_table.at(view_fncall.fn_name()).ret_kind;
+        return fn_info.ret_kind;
     }
 
     static bool IsNumeric(const ObjectKind& obj_kind)
@@ -829,8 +994,10 @@ namespace val
                 return ObjectKind{ true, "double" };
             }
 
-            if ((std::get <ObjectKind>(left_kind).type_name == "string" && std::get <ObjectKind>(right_kind).type_name == "int") ||
-                (std::get <ObjectKind>(left_kind).type_name == "int" && std::get <ObjectKind>(right_kind).type_name == "string"))
+            if ((std::get <ObjectKind>(left_kind).type_name == "string" && 
+                (std::get <ObjectKind>(right_kind).type_name == "int" || std::get <ObjectKind>(right_kind).type_name == "uint")) ||
+                ((std::get <ObjectKind>(left_kind).type_name == "int" || std::get <ObjectKind>(left_kind).type_name == "uint")
+                    && std::get <ObjectKind>(right_kind).type_name == "string"))
             {
                 return ObjectKind{ true, "string" };
             }
@@ -1070,8 +1237,12 @@ namespace val
             throw SemanticException("Unexpected Option " + expr_call_stmt.sel(), filename, ExprCallStmt, GetLine(expr_call_stmt));
         }
 
-        auto kind = AnalyzeExpression(expr_call_stmt.view_ExprCall().expr(), expr_call_stmt.view_ExprCall().line());
-        compile_info.valid_c_exprs.push({ ExprToStr(expr_call_stmt.view_ExprCall().expr()), GetFieldType(kind) });
+        if (expr_call_stmt.view_ExprCall().expr().option_is_FnCall())
+        {
+            auto kind = AnalyzeFnCallExpr(expr_call_stmt.view_ExprCall().expr(), expr_call_stmt.view_ExprCall().line());
+            compile_info.valid_c_exprs.push({ ExprToStr(expr_call_stmt.view_ExprCall().expr()), GetFieldType(kind), IsLvalue(expr_call_stmt.view_ExprCall().expr()) });
+            return;
+        }
     }
 
     // done
@@ -1105,7 +1276,7 @@ namespace val
 
         std::string expr_str = ExprToStr(view.init_expr());
         if (expr_str != "NULL") {
-            compile_info.valid_c_exprs.push({ expr_str, GetFieldType(init_kind)});
+            compile_info.valid_c_exprs.push({ expr_str, GetFieldType(init_kind), IsLvalue(view.init_expr()) });
         }
         AddVariable(var_init_stmt);
     }
@@ -1148,12 +1319,12 @@ namespace val
 
         std::string expr_str = ExprToStr(view.alloc_size());
         if (expr_str != "NULL") {
-            compile_info.valid_c_exprs.push({ ExprToStr(view.alloc_size()), FieldType{ FieldType::Type::Primitive, "int" }});
+            compile_info.valid_c_exprs.push({ ExprToStr(view.alloc_size()), FieldType{ FieldType::Type::Primitive, "int" }, IsLvalue(view.alloc_size()) });
         }
 
         expr_str = ExprToStr(view.init_expr());
         if (expr_str != "NULL") {
-            compile_info.valid_c_exprs.push({ ExprToStr(view.init_expr()), GetFieldType(arr_init)});
+            compile_info.valid_c_exprs.push({ ExprToStr(view.init_expr()), GetFieldType(arr_init), IsLvalue(view.init_expr()) });
         }
         AddVariable(array_init_stmt);
     }
@@ -1286,7 +1457,7 @@ namespace val
         std::string expr_str = ExprToStr(view.cond());
 
         if (expr_str != "NULL") {
-            compile_info.valid_c_exprs.push({ expr_str, GetFieldType(loop_expr) });
+            compile_info.valid_c_exprs.push({ expr_str, GetFieldType(loop_expr), IsLvalue(view.cond())});
         }
 
 		AnalyzeLoopBody(view.whileloop_body(), should_return, ret);
@@ -1352,7 +1523,7 @@ namespace val
 
         std::string expr_str = ExprToStr(view.check());
         if (expr_str != "NULL") {
-            compile_info.valid_c_exprs.push({ expr_str, GetFieldType(loop_expr) });
+            compile_info.valid_c_exprs.push({ expr_str, GetFieldType(loop_expr), IsLvalue(view.check())});
         }
 
         if (view.final_expr().option_is_Block())
@@ -1496,7 +1667,7 @@ namespace val
 
                 std::string expr_str = ExprToStr(field_view.init_expr());
                 if (expr_str != "NULL") {
-                    compile_info.valid_c_exprs.push({ expr_str, GetFieldType(struct_init_expr) });
+                    compile_info.valid_c_exprs.push({ expr_str, GetFieldType(struct_init_expr), IsLvalue(field_view.init_expr()) });
                 }
             }
             else {
@@ -1524,7 +1695,7 @@ namespace val
                 }
                 std::string expr_str = ExprToStr(field_view.init_expr());
                 if (expr_str != "NULL") {
-                    compile_info.valid_c_exprs.push({ expr_str, GetFieldType(struct_init_expr) });
+                    compile_info.valid_c_exprs.push({ expr_str, GetFieldType(struct_init_expr), IsLvalue(field_view.init_expr()) });
                 }
             }
         }
@@ -1563,7 +1734,7 @@ namespace val
                 }
                 std::string expr_str = ExprToStr(field_view.init_expr());
                 if (expr_str != "NULL") {
-                    compile_info.valid_c_exprs.push({ expr_str, GetFieldType(prop_opt_expr) });
+                    compile_info.valid_c_exprs.push({ expr_str, GetFieldType(prop_opt_expr), IsLvalue(field_view.init_expr()) });
                 }
             }
             else {
@@ -1588,7 +1759,7 @@ namespace val
                 }
                 std::string expr_str = ExprToStr(field_view.init_expr());
                 if (expr_str != "NULL") {
-                    compile_info.valid_c_exprs.push({ expr_str, GetFieldType(prop_opt_expr) });
+                    compile_info.valid_c_exprs.push({ expr_str, GetFieldType(prop_opt_expr), IsLvalue(field_view.init_expr()) });
                 }
             }
 
@@ -1666,7 +1837,7 @@ namespace val
         auto matched_expr_kind = AnalyzeExpression(view.matched_expr(), view.line());
         std::string expr_str = ExprToStr(view.matched_expr());
         if (expr_str != "NULL") {
-            compile_info.valid_c_exprs.push({ expr_str, GetFieldType(matched_expr_kind) });
+            compile_info.valid_c_exprs.push({ expr_str, GetFieldType(matched_expr_kind), IsLvalue(view.matched_expr()) });
         }
 
         if (std::holds_alternative <ArrayKind>(matched_expr_kind)) 
@@ -1701,6 +1872,9 @@ namespace val
                     throw SemanticException("Variant/Option " + option_name + " does not Exist", filename, CaseClauseStmt, GetLine(view.cases(i)));
                 }
                 temp = symbol_table[matched_type_name];
+                in_match = true;
+                active_prop = matched_type_name;
+                active_opt = option_name;
                 symbol_table[matched_type_name] = ObjectKind{ false, option_name };
                 Activate(matched_type_name);
             }
@@ -1711,6 +1885,7 @@ namespace val
 
             if (not view.cases(i).view_CaseClause().is_wildcard())
             {
+                in_match = false;
                 Deactivate(matched_type_name);
             }
         }
@@ -1733,14 +1908,18 @@ namespace val
         {
 			throw SemanticException("Cannot Assign Expression", filename, AssignmentStmt, GetLine(assign_stmt));
         }
+        if (not IsLvalue(view.dest()))
+        {
+			throw SemanticException("Left Hand Side of Assignment Must be an Lvalue", filename, AssignmentStmt, GetLine(assign_stmt));
+        }
 
         std::string expr_str = ExprToStr(view.dest());
         if (expr_str != "NULL") {
-            compile_info.valid_c_exprs.push({ expr_str, GetFieldType(dest_expr) });
+            compile_info.valid_c_exprs.push({ expr_str, GetFieldType(dest_expr), IsLvalue(view.dest()) });
         }
         expr_str = ExprToStr(view.expr());
         if (expr_str != "NULL") {
-            compile_info.valid_c_exprs.push({ expr_str, GetFieldType(source_expr) });
+            compile_info.valid_c_exprs.push({ expr_str, GetFieldType(source_expr), IsLvalue(view.expr()) });
         }
     }
 
@@ -1760,7 +1939,7 @@ namespace val
         }
         std::string expr_str = ExprToStr(view.elif_cond());
         if (expr_str != "NULL") {
-            compile_info.valid_c_exprs.push({ expr_str, GetFieldType(elif_cond_expr) });
+            compile_info.valid_c_exprs.push({ expr_str, GetFieldType(elif_cond_expr), IsLvalue(view.elif_cond()) });
         }
 
         return AnalyzeBlock(view.elif_body(), should_return, ret, in_loop);
@@ -1782,7 +1961,7 @@ namespace val
         }
         std::string expr_str = ExprToStr(view.if_cond());
         if (expr_str != "NULL") {
-            compile_info.valid_c_exprs.push({ expr_str, GetFieldType(AnalyzeExpression(view.if_cond(), view.line())) });
+            compile_info.valid_c_exprs.push({ expr_str, GetFieldType(AnalyzeExpression(view.if_cond(), view.line())), IsLvalue(view.if_cond())});
         }
 
         bool if_returns = AnalyzeBlock(view.if_body(), should_return, ret, in_loop);
@@ -1882,16 +2061,19 @@ namespace val
                 break;
             case selector::ReturnStmt:
             {
+				auto ret_expr = AnalyzeExpression(seq.statements(i).view_Return().return_expr(), seq.statements(i).view_Return().line());
                 if (not should_return && (not std::holds_alternative <ObjectKind>(ret) && std::get <ObjectKind>(ret).type_name != "void"))
                 {
                     throw SemanticException("Return Statement Outside Function Body", filename, ReturnStmt, GetLine(seq.statements(i)));
                 }
 
-                else if (not CanBeAssigned(ret, AnalyzeExpression(seq.statements(i).view_Return().return_expr(), seq.statements(i).view_Return().line())))
+                else if (not CanBeAssigned(ret, ret_expr))
                 {
                     throw SemanticException("Cannot Deduce Return Type to Function's", filename, ReturnStmt, GetLine(seq.statements(i)));
                 }
 
+				bool is_string = std::holds_alternative <ObjectKind>(ret) && std::get <ObjectKind>(ret).type_name == "string";
+                compile_info.valid_c_exprs.push({ ExprToStr(seq.statements(i).view_Return().return_expr(), is_string), GetFieldType(ret_expr), false });
                 returns = true;
                 break;
             }

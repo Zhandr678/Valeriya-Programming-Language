@@ -18,7 +18,7 @@ namespace val
 		return adts.at(adt_name);
 	}
 
-	std::pair <std::string, FieldType> CompileInfo::GetNextExpr() const noexcept
+	ExpressionInfo CompileInfo::GetNextExpr() const noexcept
 	{
 		return valid_c_exprs.front();
 	}

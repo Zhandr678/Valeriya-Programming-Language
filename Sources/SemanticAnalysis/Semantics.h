@@ -19,22 +19,26 @@ namespace val
 		std::unordered_map <std::string, bool> active;
 		std::unordered_map <std::string, std::string> option_to_prop;
 
+		bool in_match;
+		std::string active_prop, active_opt;
+
 		std::vector <std::string> block_allocated;
 
 		mutable CompileInfo compile_info;
 
 #pragma region("Type Table Helpers")
-		StructType ConstructStructType(const Statement& make_struct_stmt) const noexcept;
-		PropertyType ConstructPropertyType(const Statement& make_property_stmt) const noexcept;
-		EnumType ConstructEnumType(const Statement& make_enum_stmt) const noexcept;
-		FnTable ConstructFn(const Statement& make_fn_stmt) const noexcept;
+		StructType ConstructStructType(const Statement& make_struct_stmt) noexcept;
+		PropertyType ConstructPropertyType(const Statement& make_property_stmt) noexcept;
+		EnumType ConstructEnumType(const Statement& make_enum_stmt) noexcept;
+		FnTable ConstructFn(const Statement& make_fn_stmt) noexcept;
 
 		bool NameExists(const std::string& name) const noexcept;
 		bool TypeExists(const std::string& name) const noexcept;
-		std::string ExprToStr(const Expression& expr) const noexcept;
+		std::string ExprToStr(const Expression& expr, bool strf = false);
 		FieldType GetFieldType(const Statement& init) const noexcept;
 		FieldType GetFieldType(bool is_array, const std::string& type_name, const std::string& struct_name) const noexcept;
 		FieldType GetFieldType(const VariableKind& kind) const noexcept;
+		bool IsLvalue(const Expression& e) const noexcept;
 
 		bool CanBeAssigned(const VariableKind& to, const VariableKind& from) noexcept;
 #pragma endregion

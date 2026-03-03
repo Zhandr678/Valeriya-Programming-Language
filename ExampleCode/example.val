@@ -1,19 +1,21 @@
-property prop
+struct Example
 {
-	opt1: {}
-	opt2: {}
-	opt3: {}
-	opt4: {}
+	int a;
+	double b;
+	char c;
 }
 
-prop p = opt1{};
-
-match (p)
+struct Example2
 {
-	case opt1 -> {}
-	case opt2 -> {}
-	case opt3 -> {}
-	case opt4 -> {}
+	int a;
+	Example e;
 }
 
-string s = "Hello " + "World";
+struct Example3
+{
+	Example2 e;
+}
+
+Example3 ex3 = Example3{Example2{1, Example{1, 1, 'x'}}};
+
+ex3.e.e.a = 2;

@@ -18,8 +18,11 @@ namespace val
 
 		void PushExpression(std::ofstream& to) noexcept;
 
-		void PushVarInitialization(const Statement& var_init, std::ofstream& to, size_t num_tabs) noexcept;
-		void PushArrInitialization(const Statement& arr_init, std::ofstream& to, size_t num_tabs) noexcept;
+		void PushVarInitialization(const Statement& var_init, std::ofstream& to, size_t num_tabs, std::vector <std::string>& alloc_ptrs) noexcept;
+		void PushArrInitialization(const Statement& arr_init, std::ofstream& to, size_t num_tabs, std::vector <std::string>& alloc_ptrs) noexcept;
+
+		void PushCleanup(const std::vector <std::string>& alloc_ptrs, std::ofstream& to, size_t num_tabs) noexcept;
+
 		void PushAssignment(const Statement& assignment, std::ofstream& to, size_t num_tabs) noexcept;
 		void PushExprCall(const Statement& expr_call, std::ofstream& to, size_t num_tabs) noexcept;
 		void PushBlock(const Statement& block, std::ofstream& to, size_t num_tabs) noexcept;
@@ -31,6 +34,7 @@ namespace val
 		void PushStructDeleter(const Statement& make_struct, std::ofstream& to, size_t num_tabs) noexcept;
 		void PushStructInit(const Statement& make_struct, std::ofstream& to, size_t num_tabs) noexcept;
 		void PushStructAssign(const Statement& make_struct, std::ofstream& to, size_t num_tabs) noexcept;
+		void PushStructUpdate(const Statement& make_struct, std::ofstream& to, size_t num_tabs) noexcept;
 
 		void PushMakeStruct(const Statement& make_struct, std::ofstream& to, size_t num_tabs) noexcept;
 		
@@ -46,8 +50,8 @@ namespace val
 
 		void PushMakeProperty(const Statement& make_property, std::ofstream& to, size_t num_tabs) noexcept;
 
-		void PushPropertyCaseClause(const std::string& prop_name, const std::string& prop_type, const Statement& case_clause, std::ofstream& to, size_t num_tabs) noexcept;
-		void PushEnumCaseClause(const std::string& enum_expr, const Statement& case_clause, std::ofstream& to, size_t num_tabs) noexcept;
+		void PushPropertyCaseClause(const std::string& prop_name, const std::string& prop_type, const Statement& case_clause, std::ofstream& to, size_t num_tabs, size_t order) noexcept;
+		void PushEnumCaseClause(const std::string& enum_expr, const Statement& case_clause, std::ofstream& to, size_t num_tabs, size_t order) noexcept;
 		void PushMatch(const Statement& match, std::ofstream& to, size_t num_tabs) noexcept;
 
 		void PushMakeFunction(const Statement& make_fn, std::ofstream& to, size_t num_tabs) noexcept;

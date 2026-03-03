@@ -3,6 +3,7 @@
 #include <string.h>
 #include <inttypes.h>
 #define bool _Bool
+#define uint uint32_t
 
 typedef void (*_MVS_Deleter)(uintptr_t);
 
@@ -182,140 +183,239 @@ bool MVS_SameLoc(uintptr_t a, uintptr_t b)
     return a == b;
 }
 
-typedef struct prop prop;
-void xx_free_prop(uintptr_t address);
+typedef struct string {
+    size_t length;
+    char* data;
+} string;
 
-typedef struct opt1 opt1;
-
-typedef struct opt2 opt2;
-
-typedef struct opt3 opt3;
-
-typedef struct opt4 opt4;
-
-typedef enum prop_Tag {
-	opt1_tag, opt2_tag, opt3_tag, opt4_tag, 
-} prop_Tag;
-
-typedef union prop_Opts {
-	opt1* opt1_opt;
-	opt2* opt2_opt;
-	opt3* opt3_opt;
-	opt4* opt4_opt;
-} prop_Opts;
-
-typedef struct prop {
-	prop_Tag tag;
-	prop_Opts opts;
-} prop;
-
-bool xx_prop_option_is_opt1(const prop* prop)
+void xx_free_string(uintptr_t address)
 {
-	return prop->tag == opt1_tag;
+    string* s = (string*)address;
+
+    if (s->data != NULL)
+        free(s->data);
+
+    free(s);
 }
 
-bool xx_prop_option_is_opt2(const prop* prop)
+void xx_string_set(string* s, size_t index, char value)
 {
-	return prop->tag == opt2_tag;
+    if (!s) return;
+    if (index >= s->length) return;
+
+    s->data[index] = value;
 }
 
-bool xx_prop_option_is_opt3(const prop* prop)
+string* xx_init_string(const char* literal)
 {
-	return prop->tag == opt3_tag;
+    string* s = malloc(sizeof(string));
+
+    s->length = strlen(literal);
+    s->data = malloc(s->length + 1);
+
+    memcpy(s->data, literal, s->length + 1);
+
+    return s;
 }
 
-bool xx_prop_option_is_opt4(const prop* prop)
+string* xx_string_add(string* a, bool a_temp,
+    string* b, bool b_temp)
 {
-	return prop->tag == opt4_tag;
+    if (!a || !b) return NULL;
+
+    string* result = malloc(sizeof(string));
+
+    result->length = a->length + b->length;
+    result->data = malloc(result->length + 1);
+
+    memcpy(result->data, a->data, a->length);
+    memcpy(result->data + a->length, b->data, b->length);
+
+    result->data[result->length] = '\0';
+
+    // free temporaries AFTER usage
+    if (a_temp)
+        xx_free_string((uintptr_t)a);
+
+    if (b_temp)
+        xx_free_string((uintptr_t)b);
+
+    return result;
 }
 
-void xx_free_prop(uintptr_t address)
+string* xx_string_sub_right(string* s, bool s_temp, size_t n)
 {
-	if ((((prop*)address)->tag == opt1_tag) && (((prop*)address)->opts.opt1_opt != NULL)) 
-	{
-		MVS_DetachPointer((uintptr_t)((prop*)address)->opts.opt1_opt);
+    if (!s) return NULL;
+
+    string* result;
+
+    if (n >= s->length)
+    {
+        result = xx_init_string("");
+    }
+    else
+    {
+        size_t new_len = s->length - n;
+
+        result = malloc(sizeof(string));
+        result->length = new_len;
+        result->data = malloc(new_len + 1);
+
+        memcpy(result->data, s->data, new_len);
+        result->data[new_len] = '\0';
+    }
+
+    if (s_temp)
+        xx_free_string((uintptr_t)s);
+
+    return result;
+}
+
+string* xx_string_sub_left(size_t n, string* s, bool s_temp)
+{
+    if (!s) return NULL;
+
+    string* result;
+
+    if (n >= s->length)
+    {
+        result = xx_init_string("");
+    }
+    else
+    {
+        size_t new_len = s->length - n;
+
+        result = malloc(sizeof(string));
+        result->length = new_len;
+        result->data = malloc(new_len + 1);
+
+        memcpy(result->data, s->data + n, new_len);
+        result->data[new_len] = '\0';
+    }
+
+    if (s_temp)
+        xx_free_string((uintptr_t)s);
+
+    return result;
+}
+
+typedef struct Example {
+	int a;
+	double b;
+	char c;
+} Example;
+
+void xx_free_Example(uintptr_t address)
+{
+	free(((Example*)address));
+}
+
+Example* xx_init_Example(int a, double b, char c) 
+{
+	Example *xx_Example_init_ptr = malloc(sizeof(Example));
+	xx_Example_init_ptr->a = a;
+	xx_Example_init_ptr->b = b;
+	xx_Example_init_ptr->c = c;
+	return xx_Example_init_ptr;
+}
+
+void xx_update_Example(Example* dest, int a, double b, char c)
+{
+	if (dest == NULL) { return; }
+	if (MVS_RefCount((uintptr_t)dest) > 1) {
+		Example* new_dest = malloc(sizeof(Example));
+		new_dest->a = a;
+		new_dest->b = b;
+		new_dest->c = c;
+		MVS_DetachPointer((uintptr_t)dest);
+		*dest = *new_dest;
+		return;
 	}
-	if ((((prop*)address)->tag == opt2_tag) && (((prop*)address)->opts.opt2_opt != NULL)) 
+	dest->a = a;
+	dest->b = b;
+	dest->c = c;
+}
+
+typedef struct Example2 {
+	int a;
+	Example* e;
+} Example2;
+
+void xx_free_Example2(uintptr_t address)
+{
+	if (((Example2*)address)->e != NULL)
 	{
-		MVS_DetachPointer((uintptr_t)((prop*)address)->opts.opt2_opt);
+		MVS_DetachPointer((uintptr_t)((Example2*)address)->e);
 	}
-	if ((((prop*)address)->tag == opt3_tag) && (((prop*)address)->opts.opt3_opt != NULL)) 
+	free(((Example2*)address));
+}
+
+Example2* xx_init_Example2(int a, Example* e) 
+{
+	Example2 *xx_Example2_init_ptr = malloc(sizeof(Example2));
+	xx_Example2_init_ptr->a = a;
+	xx_Example2_init_ptr->e = e;
+	if (e != NULL) {
+		MVS_RegisterNew((uintptr_t)e, sizeof(Example), xx_free_Example);
+	}
+	return xx_Example2_init_ptr;
+}
+
+void xx_update_Example2(Example2* dest, int a, Example* e)
+{
+	if (dest == NULL) { return; }
+	if (MVS_RefCount((uintptr_t)dest) > 1) {
+		Example2* new_dest = malloc(sizeof(Example2));
+		new_dest->a = a;
+		new_dest->e = e;
+		if (new_dest->e != NULL) {
+			MVS_RegisterNew((uintptr_t)new_dest->e, sizeof(Example), xx_free_Example);
+		}
+		MVS_DetachPointer((uintptr_t)dest);
+		*dest = *new_dest;
+		return;
+	}
+	dest->a = a;
+	dest->e = e;
+}
+
+typedef struct Example3 {
+	Example2* e;
+} Example3;
+
+void xx_free_Example3(uintptr_t address)
+{
+	if (((Example3*)address)->e != NULL)
 	{
-		MVS_DetachPointer((uintptr_t)((prop*)address)->opts.opt3_opt);
+		MVS_DetachPointer((uintptr_t)((Example3*)address)->e);
 	}
-	if ((((prop*)address)->tag == opt4_tag) && (((prop*)address)->opts.opt4_opt != NULL)) 
-	{
-		MVS_DetachPointer((uintptr_t)((prop*)address)->opts.opt4_opt);
+	free(((Example3*)address));
+}
+
+Example3* xx_init_Example3(Example2* e) 
+{
+	Example3 *xx_Example3_init_ptr = malloc(sizeof(Example3));
+	xx_Example3_init_ptr->e = e;
+	if (e != NULL) {
+		MVS_RegisterNew((uintptr_t)e, sizeof(Example2), xx_free_Example2);
 	}
-	free(((prop*)address));
+	return xx_Example3_init_ptr;
 }
 
-void xx_free_opt1(uintptr_t address)
+void xx_update_Example3(Example3* dest, Example2* e)
 {
-}
-
-opt1* xx_init_opt1()
-{
-	return NULL;
-}
-
-void xx_free_opt2(uintptr_t address)
-{
-}
-
-opt2* xx_init_opt2()
-{
-	return NULL;
-}
-
-void xx_free_opt3(uintptr_t address)
-{
-}
-
-opt3* xx_init_opt3()
-{
-	return NULL;
-}
-
-void xx_free_opt4(uintptr_t address)
-{
-}
-
-opt4* xx_init_opt4()
-{
-	return NULL;
-}
-
-prop* xx_init_prop_opt1(opt1* opt1_opt)
-{
-	prop* xx_init_prop_ptr = malloc(sizeof(prop));
-	xx_init_prop_ptr->tag = opt1_tag;
-	xx_init_prop_ptr->opts.opt1_opt = opt1_opt;
-	return xx_init_prop_ptr;
-}
-
-prop* xx_init_prop_opt2(opt2* opt2_opt)
-{
-	prop* xx_init_prop_ptr = malloc(sizeof(prop));
-	xx_init_prop_ptr->tag = opt2_tag;
-	xx_init_prop_ptr->opts.opt2_opt = opt2_opt;
-	return xx_init_prop_ptr;
-}
-
-prop* xx_init_prop_opt3(opt3* opt3_opt)
-{
-	prop* xx_init_prop_ptr = malloc(sizeof(prop));
-	xx_init_prop_ptr->tag = opt3_tag;
-	xx_init_prop_ptr->opts.opt3_opt = opt3_opt;
-	return xx_init_prop_ptr;
-}
-
-prop* xx_init_prop_opt4(opt4* opt4_opt)
-{
-	prop* xx_init_prop_ptr = malloc(sizeof(prop));
-	xx_init_prop_ptr->tag = opt4_tag;
-	xx_init_prop_ptr->opts.opt4_opt = opt4_opt;
-	return xx_init_prop_ptr;
+	if (dest == NULL) { return; }
+	if (MVS_RefCount((uintptr_t)dest) > 1) {
+		Example3* new_dest = malloc(sizeof(Example3));
+		new_dest->e = e;
+		if (new_dest->e != NULL) {
+			MVS_RegisterNew((uintptr_t)new_dest->e, sizeof(Example2), xx_free_Example2);
+		}
+		MVS_DetachPointer((uintptr_t)dest);
+		*dest = *new_dest;
+		return;
+	}
+	dest->e = e;
 }
 
 
@@ -323,21 +423,8 @@ prop* xx_init_prop_opt4(opt4* opt4_opt)
 int main()
 {
 	MVS_Init();
-
-	prop* p = xx_init_prop_opt1(xx_init_opt1());
-	MVS_RegisterNew((uintptr_t)p, sizeof(prop), xx_free_prop);
-	if (xx_prop_option_is_opt1(p))
-	{
-	}
-	if (xx_prop_option_is_opt2(p))
-	{
-	}
-	if (xx_prop_option_is_opt3(p))
-	{
-	}
-	if (xx_prop_option_is_opt4(p))
-	{
-	}
-/* HERE SHOULD BE STRING INIT */
+	Example3* ex3 = xx_init_Example3(xx_init_Example2(1, xx_init_Example(1, 1, 'x')));
+	MVS_RegisterNew((uintptr_t)ex3, sizeof(Example3), xx_free_Example3);
+	MVS_DetachPointer((uintptr_t)ex3);
 	MVS_Destroy();
 }
