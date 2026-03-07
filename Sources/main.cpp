@@ -43,10 +43,12 @@ int main(int argc, char* argv[])
 		);
 
 		auto AST = parser.ConstructAST();
-		
+
 		val::Semantics semantics(val_source_path.filename().string());
 		semantics.Analysis(AST);
+
 		
+
 		val::CGenerator codegen(semantics.GetCompileInfo());
 		codegen.GenerateC_IR(AST, val_source_path.string());
 

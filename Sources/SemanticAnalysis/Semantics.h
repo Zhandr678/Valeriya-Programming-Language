@@ -23,6 +23,7 @@ namespace val
 		std::string active_prop, active_opt;
 
 		std::vector <std::string> block_allocated;
+		std::queue <std::string> printf_scanf_exprs;
 
 		mutable CompileInfo compile_info;
 
@@ -34,6 +35,7 @@ namespace val
 
 		bool NameExists(const std::string& name) const noexcept;
 		bool TypeExists(const std::string& name) const noexcept;
+		bool IsString(const Expression& expr);
 		std::string ExprToStr(const Expression& expr, bool strf = false);
 		FieldType GetFieldType(const Statement& init) const noexcept;
 		FieldType GetFieldType(bool is_array, const std::string& type_name, const std::string& struct_name) const noexcept;

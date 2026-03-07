@@ -1,3 +1,4 @@
+#define _CRT_SECURE_NO_WARNINGS
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -139,42 +140,29 @@ void MVS_RegisterNew(uintptr_t address, size_t size, _MVS_Deleter deleter)
     mu.size++;
 }
 
-bool MVS_DetachPointer(uintptr_t address)
-{
+bool MVS_DetachPointer(uintptr_t address) {
     size_t index = _hash_address(address, mu.capacity);
-
     MVSNode* current = mu.buckets[index];
     MVSNode* prev = NULL;
 
-    while (current)
-    {
-        if (current->key == address)
-        {
-            if (current->value.ref_count > 1)
-            {
+    while (current) {
+        if (current->key == address) {
+            if (current->value.ref_count > 1) {
                 current->value.ref_count--;
                 return 0;
             }
-            if (current->value.ref_count == 0)
-            {
-                return 0;
-            }
-
-            current->value.deleter(address);
 
             if (prev) { prev->next = current->next; }
             else { mu.buckets[index] = current->next; }
 
+            current->value.deleter(address);
             free(current);
             mu.size--;
-
             return 1;
         }
-
         prev = current;
         current = current->next;
     }
-
     return 0;
 }
 
@@ -183,8 +171,303 @@ bool MVS_SameLoc(uintptr_t a, uintptr_t b)
     return a == b;
 }
 
-typedef struct string {
+typedef struct array
+{
     size_t length;
+    size_t elem_size;
+    bool is_pointer;
+    _MVS_Deleter element_deleter;
+    void* data;
+} array;
+
+void xx_free_array(uintptr_t address)
+{
+    array* arr = (array*)address;
+
+    if (arr->data)
+    {
+        if (arr->is_pointer)
+        {
+            void** ptrs = (void**)arr->data;
+
+            for (size_t i = 0; i < arr->length; i++)
+            {
+                if (ptrs[i])
+                    MVS_DetachPointer((uintptr_t)ptrs[i]);
+            }
+        }
+
+        free(arr->data);
+    }
+
+    free(arr);
+}
+
+array* xx_init_array(const void* data,
+    size_t length,
+    size_t elem_size,
+    bool is_pointer,
+    _MVS_Deleter element_deleter)
+{
+    array* arr = malloc(sizeof(array));
+
+    arr->length = length;
+    arr->elem_size = elem_size;
+    arr->is_pointer = is_pointer;
+    arr->element_deleter = element_deleter;
+
+    arr->data = malloc(length * elem_size);
+
+    if (data)
+        memcpy(arr->data, data, length * elem_size);
+
+    if (is_pointer && data)
+    {
+        void** ptrs = (void**)arr->data;
+
+        for (size_t i = 0; i < length; i++)
+        {
+            if (ptrs[i])
+                MVS_RegisterNew((uintptr_t)ptrs[i], 0, element_deleter);
+        }
+    }
+
+    return arr;
+}
+
+void xx_array_set(array* arr, size_t index, void* value)
+{
+    if (!arr) return;
+    if (index >= arr->length) return;
+
+    char* base = (char*)arr->data + index * arr->elem_size;
+
+    if (arr->is_pointer)
+    {
+        void* old_ptr = *(void**)base;
+
+        if (old_ptr)
+            MVS_DetachPointer((uintptr_t)old_ptr);
+
+        void* new_ptr = *(void**)value;
+
+        if (new_ptr)
+            MVS_RegisterNew((uintptr_t)new_ptr, 0, NULL);
+    }
+
+    memcpy(base, value, arr->elem_size);
+}
+
+void* xx_array_get(array* arr, size_t index)
+{
+    if (!arr) return NULL;
+    if (index >= arr->length) return NULL;
+
+    return (char*)arr->data + index * arr->elem_size;
+}
+
+array* xx_array_add(array* a, bool a_temp,
+    array* b, bool b_temp)
+{
+    if (!a || !b) return NULL;
+    if (a->elem_size != b->elem_size) return NULL;
+    if (a->is_pointer != b->is_pointer) return NULL;
+
+    array* result = malloc(sizeof(array));
+
+    result->elem_size = a->elem_size;
+    result->is_pointer = a->is_pointer;
+    result->length = a->length + b->length;
+
+    size_t bytes = result->length * result->elem_size;
+
+    result->data = malloc(bytes);
+
+    memcpy(result->data,
+        a->data,
+        a->length * a->elem_size);
+
+    memcpy((char*)result->data + a->length * a->elem_size,
+        b->data,
+        b->length * b->elem_size);
+
+    if (result->is_pointer)
+    {
+        void** ptrs = (void**)result->data;
+
+        for (size_t i = 0; i < result->length; i++)
+        {
+            if (ptrs[i])
+                MVS_RegisterNew((uintptr_t)ptrs[i], 0, NULL);
+        }
+    }
+
+    if (a_temp)
+        xx_free_array((uintptr_t)a);
+
+    if (b_temp)
+        xx_free_array((uintptr_t)b);
+
+    return result;
+}
+
+array* xx_array_add_elem(array* a, bool a_temp, void* elem)
+{
+    if (!a) return NULL;
+
+    array* result = malloc(sizeof(array));
+
+    result->length = a->length + 1;
+    result->elem_size = a->elem_size;
+    result->is_pointer = a->is_pointer;
+
+    result->data = malloc(result->length * result->elem_size);
+
+    memcpy(result->data,
+        a->data,
+        a->length * a->elem_size);
+
+    memcpy((char*)result->data + a->length * a->elem_size,
+        elem,
+        a->elem_size);
+
+    if (result->is_pointer)
+    {
+        void* ptr = *(void**)elem;
+
+        if (ptr)
+            MVS_RegisterNew((uintptr_t)ptr, 0, NULL);
+    }
+
+    if (a_temp)
+        xx_free_array((uintptr_t)a);
+
+    return result;
+}
+
+array* xx_array_sub_right(array* arr, bool arr_temp, size_t n)
+{
+    if (!arr) return NULL;
+
+    array* result;
+
+    if (n >= arr->length)
+    {
+        result = xx_init_array(NULL, 0, arr->elem_size, arr->is_pointer, arr->element_deleter);
+    }
+    else
+    {
+        size_t new_len = arr->length - n;
+
+        result = malloc(sizeof(array));
+
+        result->length = new_len;
+        result->elem_size = arr->elem_size;
+        result->is_pointer = arr->is_pointer;
+
+        result->data = malloc(new_len * result->elem_size);
+
+        memcpy(result->data,
+            arr->data,
+            new_len * result->elem_size);
+
+        if (result->is_pointer)
+        {
+            void** ptrs = (void**)result->data;
+
+            for (size_t i = 0; i < new_len; i++)
+            {
+                if (ptrs[i])
+                    MVS_RegisterNew((uintptr_t)ptrs[i], 0, arr->element_deleter);
+            }
+        }
+    }
+
+    if (arr_temp)
+        xx_free_array((uintptr_t)arr);
+
+    return result;
+}
+
+array* xx_array_sub_left(size_t n, array* arr, bool arr_temp)
+{
+    if (!arr) return NULL;
+
+    array* result;
+
+    if (n >= arr->length)
+    {
+        result = xx_init_array(NULL, 0, arr->elem_size, arr->is_pointer, arr->element_deleter);
+    }
+    else
+    {
+        size_t new_len = arr->length - n;
+
+        result = malloc(sizeof(array));
+
+        result->length = new_len;
+        result->elem_size = arr->elem_size;
+        result->is_pointer = arr->is_pointer;
+
+        result->data = malloc(new_len * result->elem_size);
+
+        memcpy(result->data,
+            (char*)arr->data + n * arr->elem_size,
+            new_len * result->elem_size);
+
+        if (result->is_pointer)
+        {
+            void** ptrs = (void**)result->data;
+
+            for (size_t i = 0; i < new_len; i++)
+            {
+                if (ptrs[i])
+                    MVS_RegisterNew((uintptr_t)ptrs[i], 0, arr->element_deleter);
+            }
+        }
+    }
+
+    if (arr_temp)
+        xx_free_array((uintptr_t)arr);
+
+    return result;
+}
+
+array* xx_clone_array(array* ptr)
+{
+    if (!ptr)
+        return NULL;
+
+    array* clone = malloc(sizeof(array));
+
+    clone->length = ptr->length;
+    clone->elem_size = ptr->elem_size;
+    clone->is_pointer = ptr->is_pointer;
+
+    size_t bytes = ptr->length * ptr->elem_size;
+
+    clone->data = malloc(bytes);
+
+    memcpy(clone->data, ptr->data, bytes);
+
+    if (clone->is_pointer)
+    {
+        void** ptrs = (void**)clone->data;
+
+        for (size_t i = 0; i < clone->length; i++)
+        {
+            if (ptrs[i])
+                MVS_RegisterNew((uintptr_t)ptrs[i], 0, ptr->element_deleter);
+        }
+    }
+
+    MVS_RegisterNew((uintptr_t)clone, sizeof(array), xx_free_array);
+
+    return clone;
+}
+
+typedef struct string {
+    int length;
     char* data;
 } string;
 
@@ -233,12 +516,31 @@ string* xx_string_add(string* a, bool a_temp,
 
     result->data[result->length] = '\0';
 
-    // free temporaries AFTER usage
     if (a_temp)
         xx_free_string((uintptr_t)a);
 
     if (b_temp)
         xx_free_string((uintptr_t)b);
+
+    return result;
+}
+
+string* xx_string_add_char(string* a, bool a_temp, char c)
+{
+    if (!a) return NULL;
+
+    string* result = malloc(sizeof(string));
+
+    result->length = a->length + 1;
+    result->data = malloc(result->length + 1);
+
+    memcpy(result->data, a->data, a->length);
+
+    result->data[a->length] = c;
+    result->data[result->length] = '\0';
+
+    if (a_temp)
+        xx_free_string((uintptr_t)a);
 
     return result;
 }
@@ -299,123 +601,21 @@ string* xx_string_sub_left(size_t n, string* s, bool s_temp)
     return result;
 }
 
-typedef struct Example {
-	int a;
-	double b;
-	char c;
-} Example;
-
-void xx_free_Example(uintptr_t address)
+string* xx_clone_string(string* ptr)
 {
-	free(((Example*)address));
-}
+    if (ptr == NULL)
+        return NULL;
 
-Example* xx_init_Example(int a, double b, char c) 
-{
-	Example *xx_Example_init_ptr = malloc(sizeof(Example));
-	xx_Example_init_ptr->a = a;
-	xx_Example_init_ptr->b = b;
-	xx_Example_init_ptr->c = c;
-	return xx_Example_init_ptr;
-}
+    string* clone = malloc(sizeof(string));
 
-void xx_update_Example(Example* dest, int a, double b, char c)
-{
-	if (dest == NULL) { return; }
-	if (MVS_RefCount((uintptr_t)dest) > 1) {
-		Example* new_dest = malloc(sizeof(Example));
-		new_dest->a = a;
-		new_dest->b = b;
-		new_dest->c = c;
-		MVS_DetachPointer((uintptr_t)dest);
-		*dest = *new_dest;
-		return;
-	}
-	dest->a = a;
-	dest->b = b;
-	dest->c = c;
-}
+    clone->length = ptr->length;
+    clone->data = malloc(ptr->length + 1);
 
-typedef struct Example2 {
-	int a;
-	Example* e;
-} Example2;
+    memcpy(clone->data, ptr->data, ptr->length + 1);
 
-void xx_free_Example2(uintptr_t address)
-{
-	if (((Example2*)address)->e != NULL)
-	{
-		MVS_DetachPointer((uintptr_t)((Example2*)address)->e);
-	}
-	free(((Example2*)address));
-}
+    MVS_RegisterNew((uintptr_t)clone, sizeof(string), xx_free_string);
 
-Example2* xx_init_Example2(int a, Example* e) 
-{
-	Example2 *xx_Example2_init_ptr = malloc(sizeof(Example2));
-	xx_Example2_init_ptr->a = a;
-	xx_Example2_init_ptr->e = e;
-	if (e != NULL) {
-		MVS_RegisterNew((uintptr_t)e, sizeof(Example), xx_free_Example);
-	}
-	return xx_Example2_init_ptr;
-}
-
-void xx_update_Example2(Example2* dest, int a, Example* e)
-{
-	if (dest == NULL) { return; }
-	if (MVS_RefCount((uintptr_t)dest) > 1) {
-		Example2* new_dest = malloc(sizeof(Example2));
-		new_dest->a = a;
-		new_dest->e = e;
-		if (new_dest->e != NULL) {
-			MVS_RegisterNew((uintptr_t)new_dest->e, sizeof(Example), xx_free_Example);
-		}
-		MVS_DetachPointer((uintptr_t)dest);
-		*dest = *new_dest;
-		return;
-	}
-	dest->a = a;
-	dest->e = e;
-}
-
-typedef struct Example3 {
-	Example2* e;
-} Example3;
-
-void xx_free_Example3(uintptr_t address)
-{
-	if (((Example3*)address)->e != NULL)
-	{
-		MVS_DetachPointer((uintptr_t)((Example3*)address)->e);
-	}
-	free(((Example3*)address));
-}
-
-Example3* xx_init_Example3(Example2* e) 
-{
-	Example3 *xx_Example3_init_ptr = malloc(sizeof(Example3));
-	xx_Example3_init_ptr->e = e;
-	if (e != NULL) {
-		MVS_RegisterNew((uintptr_t)e, sizeof(Example2), xx_free_Example2);
-	}
-	return xx_Example3_init_ptr;
-}
-
-void xx_update_Example3(Example3* dest, Example2* e)
-{
-	if (dest == NULL) { return; }
-	if (MVS_RefCount((uintptr_t)dest) > 1) {
-		Example3* new_dest = malloc(sizeof(Example3));
-		new_dest->e = e;
-		if (new_dest->e != NULL) {
-			MVS_RegisterNew((uintptr_t)new_dest->e, sizeof(Example2), xx_free_Example2);
-		}
-		MVS_DetachPointer((uintptr_t)dest);
-		*dest = *new_dest;
-		return;
-	}
-	dest->e = e;
+    return clone;
 }
 
 
@@ -423,8 +623,18 @@ void xx_update_Example3(Example3* dest, Example2* e)
 int main()
 {
 	MVS_Init();
-	Example3* ex3 = xx_init_Example3(xx_init_Example2(1, xx_init_Example(1, 1, 'x')));
-	MVS_RegisterNew((uintptr_t)ex3, sizeof(Example3), xx_free_Example3);
-	MVS_DetachPointer((uintptr_t)ex3);
+	{
+		int i = 0;
+		while(1)
+		{
+			if (!(i<10)) { break; }
+			{
+				printf("Hello, World!\n");
+			}
+			{
+				i = i+1;
+			}
+		}
+	}
 	MVS_Destroy();
 }

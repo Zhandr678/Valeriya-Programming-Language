@@ -234,10 +234,16 @@ namespace val
         case selector::EmptyExpr:
             return "NULL";
         case selector::VarNameExpr:
+            if (strf)
+            {
+                return expr.view_VarName().name() + "->data";
+            }
             return expr.view_VarName().name();
         case selector::ArrayIndexExpr:
         {
-            return ExprToStr(expr.view_ArrayIndex().array_expr()) + "[" + ExprToStr(expr.view_ArrayIndex().at()) + "]";
+			auto array_expr = AnalyzeExpression(expr.view_ArrayIndex().array_expr(), 0);
+
+			return "*(" + std::get <ArrayKind>(array_expr).of_kind.type_name + "*)xx_array_get(" + ExprToStr(expr.view_ArrayIndex().array_expr()) + ", " + ExprToStr(expr.view_ArrayIndex().at()) + ")";
         }
         case selector::BoolLiteralExpr:
             return expr.view_BoolLiteral().value() ? "1" : "0";
@@ -248,7 +254,9 @@ namespace val
         case selector::IntLiteralExpr:
             return std::to_string(expr.view_IntLiteral().value());
         case selector::StringLiteralExpr:
-            if (strf) { return expr.view_StringLiteral().value(); }
+            if (strf) {
+                return expr.view_StringLiteral().value();
+			}
             return "xx_init_string(" + expr.view_StringLiteral().value() + ")";
         case selector::FieldCallExpr:
         {
@@ -260,16 +268,18 @@ namespace val
         }
         case selector::FnCallExpr:
         {
+			if (expr.view_FnCall().fn_name() == "printf" || expr.view_FnCall().fn_name() == "scanf" || expr.view_FnCall().fn_name() == "len")
+            {
+                std::string expr = printf_scanf_exprs.front();
+				printf_scanf_exprs.pop();
+                return expr;
+            }
             std::string fn_call_str = expr.view_FnCall().fn_name() + "(";
             for (size_t i = 0; i < expr.view_FnCall().size(); i++)
             {
                 if (i != 0) { fn_call_str += ", "; }
-                if (expr.view_FnCall().fn_name() == "scanf" && i > 0)
-                {
-                    fn_call_str += "&";
-                }
-                fn_call_str += ExprToStr(expr.view_FnCall().args(i), 
-                    expr.view_FnCall().fn_name() == "printf" || expr.view_FnCall().fn_name() == "scanf");
+
+                fn_call_str += ExprToStr(expr.view_FnCall().args(i));
             }
             return fn_call_str + ")";
         }
@@ -278,12 +288,21 @@ namespace val
             auto expr_left = AnalyzeExpression(expr.view_Binary().lhs(), 0);
             auto expr_right = AnalyzeExpression(expr.view_Binary().rhs(), 0);
             if (expr.view_Binary().op() == "+" && 
-                std::holds_alternative <ObjectKind>(expr_left) &&
-                std::get <ObjectKind>(expr_left).type_name == "string")
+                (std::holds_alternative <ObjectKind>(expr_left) && std::get <ObjectKind>(expr_left).type_name == "string") &&
+                (std::holds_alternative <ObjectKind>(expr_right) && (std::get <ObjectKind>(expr_right).type_name == "string"))
+            )
             {
                 return "xx_string_add(" + 
                     ExprToStr(expr.view_Binary().lhs()) + ", " + (IsLvalue(expr.view_Binary().lhs()) ? "0, " : "1, ") +
                     ExprToStr(expr.view_Binary().rhs()) + ", " + (IsLvalue(expr.view_Binary().rhs()) ? "0)" : "1)");
+            }
+            else if (expr.view_Binary().op() == "+" &&
+                (std::holds_alternative <ObjectKind>(expr_left) && std::get <ObjectKind>(expr_left).type_name == "string") &&
+                (std::holds_alternative <ObjectKind>(expr_right) && (std::get <ObjectKind>(expr_right).type_name == "char")))
+            {
+                return "xx_string_add_char(" +
+                    ExprToStr(expr.view_Binary().lhs()) + ", " + (IsLvalue(expr.view_Binary().lhs()) ? "0, " : "1, ") +
+                    ExprToStr(expr.view_Binary().rhs()) + ")";
             }
             
             else if (expr.view_Binary().op() == "-" && 
@@ -300,7 +319,7 @@ namespace val
                     std::get <ObjectKind>(expr_left).type_name == "uint")) &&
                 (std::holds_alternative <ObjectKind>(expr_right) && std::get <ObjectKind>(expr_right).type_name == "string"))
             {
-                return "xx_string_sub_left(" + ExprToStr(expr.view_Binary().lhs()) + 
+                return "xx_string_sub_left(" + ExprToStr(expr.view_Binary().lhs()) +
                     ExprToStr(expr.view_Binary().rhs()) + ", " + (IsLvalue(expr.view_Binary().rhs()) ? "0)" : "1)");
             }
 
@@ -474,6 +493,12 @@ namespace val
     bool Semantics::TypeExists(const std::string& name) const noexcept
     {
         return IsPrimitive(name) || (type_table.contains(name) && (active.contains(name) && (active.at(name))));
+    }
+
+    bool Semantics::IsString(const Expression& expr)
+    {
+		auto expr_kind = AnalyzeExpression(expr, 0);
+		return std::holds_alternative <ObjectKind>(expr_kind) && std::get <ObjectKind>(expr_kind).type_name == "string";
     }
 
     void Semantics::AddVariable(const Statement& var_init) noexcept
@@ -701,6 +726,12 @@ namespace val
             throw SemanticException("A Field " + name_of_field + " does not Exist in " + struct_kind.type_name, filename, FieldCallExpr, line); // no such field
         }
 
+        if (std::holds_alternative <ObjectKind>(std::get <StructType>(type_table.at(struct_kind.type_name)).fields.at(name_of_field))
+            && view_fcall.field().option_is_ArrayIndex())
+        {
+            return ObjectKind{ true, "char" };
+        }
+
         if (view_fcall.field().option_is_ArrayIndex())
         {
             return std::get <ArrayKind>(std::get <StructType>(type_table.at(struct_kind.type_name)).fields.at(name_of_field)).of_kind;
@@ -768,10 +799,11 @@ namespace val
 
         if (fn_name == "printf")
         {
+			std::string printf_expr = "printf(";
             if (view_fncall.size() == 0)
             {
                 throw SemanticException(
-                    "printf requires at least a format string",
+                    "printf Requires at Least a Format String",
                     filename,
                     FnCallExpr,
                     line
@@ -784,27 +816,47 @@ namespace val
                 std::get<ObjectKind>(first_arg).type_name != "string")
             {
                 throw SemanticException(
-                    "printf first argument must be string",
+                    "printf First Argument Must be String",
                     filename,
                     FnCallExpr,
                     line
                 );
             }
+			printf_expr += ExprToStr(view_fncall.args(0), true);
 
             for (size_t i = 1; i < view_fncall.size(); i++)
             {
-                AnalyzeExpression(view_fncall.args(i), line);
+                auto expr_info = AnalyzeExpression(view_fncall.args(i), line);
+
+                if (std::holds_alternative <ArrayKind>(expr_info))
+                {
+                    throw SemanticException(
+                        "printf Does not Support Array Arguments",
+                        filename,
+                        FnCallExpr,
+                        line
+					);
+                }
+                else if (std::get <ObjectKind>(expr_info).type_name == "string")
+                {
+                    printf_expr += ", " + ExprToStr(view_fncall.args(i)) + "->data";
+                }
+                else {
+					printf_expr += ", " + ExprToStr(view_fncall.args(i));
+                }
             }
 
+			printf_scanf_exprs.push(printf_expr + ')');
             return ObjectKind{ true, "int" }; // printf returns int
         }
 
         if (fn_name == "scanf")
         {
+			std::string scanf_expr = "scanf(";
             if (view_fncall.size() == 0)
             {
                 throw SemanticException(
-                    "scanf requires at least a format string",
+                    "scanf Requires at Least a Format String",
                     filename,
                     FnCallExpr,
                     line
@@ -815,12 +867,14 @@ namespace val
                 std::get<ObjectKind>(AnalyzeExpression(view_fncall.args(0), line)).type_name != "string")
             {
                 throw SemanticException(
-                    "scanf first argument must be string",
+                    "scanf First Argument Must be String",
                     filename,
                     FnCallExpr,
                     line
                 );
             }
+
+            scanf_expr += ExprToStr(view_fncall.args(0), true);
 
             // Remaining args must be assignable (lvalues)
             for (size_t i = 1; i < view_fncall.size(); i++)
@@ -828,15 +882,61 @@ namespace val
                 if (!IsLvalue(view_fncall.args(i)))
                 {
                     throw SemanticException(
-                        "scanf arguments must be assignable variables",
+                        "scanf Arguments Must be Assignable Variables",
                         filename,
                         FnCallExpr,
                         line
                     );
                 }
+
+                auto expr_info = AnalyzeExpression(view_fncall.args(i), line);
+
+                if (std::holds_alternative <ArrayKind>(expr_info))
+                {
+                    throw SemanticException(
+                        "scanf Does not Support Array Arguments",
+                        filename,
+                        FnCallExpr,
+                        line);
+                }
+				else if (std::get <ObjectKind>(expr_info).type_name == "string")
+                {
+                    scanf_expr += ", " + ExprToStr(view_fncall.args(i)) + "->data";
+                }
+                else {
+                    scanf_expr += ", &" + ExprToStr(view_fncall.args(i));
+                }
             }
 
+			printf_scanf_exprs.push(scanf_expr + ')');
             return ObjectKind{ true, "int" }; // scanf returns int
+        }
+
+        if (fn_name == "len")
+        {
+            if (view_fncall.size() != 1)
+            {
+                throw SemanticException(
+                    "len Requires Exactly one Argument",
+                    filename,
+                    FnCallExpr,
+                    line
+				);
+            }
+
+			auto len_arg_info = AnalyzeExpression(view_fncall.args(0), line);
+            if (std::holds_alternative <ObjectKind>(len_arg_info) &&
+				std::get<ObjectKind>(len_arg_info).type_name != "string")
+            {
+                throw SemanticException(
+                    "len Argument Must be String or Array",
+                    filename,
+                    FnCallExpr,
+                    line
+                );
+            }
+			printf_scanf_exprs.push(ExprToStr(view_fncall.args(0)) + "->length");
+			return ObjectKind{ true, "int" };
         }
 
         if (not fn_table.contains(fn_name))
@@ -997,14 +1097,16 @@ namespace val
             if ((std::get <ObjectKind>(left_kind).type_name == "string" && 
                 (std::get <ObjectKind>(right_kind).type_name == "int" || std::get <ObjectKind>(right_kind).type_name == "uint")) ||
                 ((std::get <ObjectKind>(left_kind).type_name == "int" || std::get <ObjectKind>(left_kind).type_name == "uint")
-                    && std::get <ObjectKind>(right_kind).type_name == "string"))
+                    && std::get <ObjectKind>(right_kind).type_name == "string") && view_binop.op() == "-")
             {
                 return ObjectKind{ true, "string" };
             }
 
             if (view_binop.op() == "+" && 
-                std::get <ObjectKind>(left_kind).type_name == "string" && 
-                std::get <ObjectKind>(right_kind).type_name == "string")
+                ((std::get <ObjectKind>(left_kind).type_name == "string" && 
+                std::get <ObjectKind>(right_kind).type_name == "string") || 
+                    (std::get <ObjectKind>(left_kind).type_name == "string" && 
+                        std::get <ObjectKind>(right_kind).type_name == "char")))
             {
                 return ObjectKind{ true, "string" };
             }
@@ -2073,7 +2175,7 @@ namespace val
                 }
 
 				bool is_string = std::holds_alternative <ObjectKind>(ret) && std::get <ObjectKind>(ret).type_name == "string";
-                compile_info.valid_c_exprs.push({ ExprToStr(seq.statements(i).view_Return().return_expr(), is_string), GetFieldType(ret_expr), false });
+                compile_info.valid_c_exprs.push({ ExprToStr(seq.statements(i).view_Return().return_expr()), GetFieldType(ret_expr), false });
                 returns = true;
                 break;
             }

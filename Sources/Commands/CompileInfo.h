@@ -24,7 +24,7 @@ namespace val
 	
 	class CompileInfo
 	{
-	private:
+	public:
 		std::unordered_map<std::string, std::vector <FieldType>> lifetime_st;
 		std::unordered_map<std::string, size_t> cur_index;
 
