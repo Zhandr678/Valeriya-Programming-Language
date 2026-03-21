@@ -252,7 +252,7 @@ void xx_array_set(array* arr, size_t index, void* value)
         void* new_ptr = *(void**)value;
 
         if (new_ptr)
-            MVS_RegisterNew((uintptr_t)new_ptr, 0, NULL);
+            MVS_RegisterNew((uintptr_t)new_ptr, 0, arr->element_deleter);
     }
 
     memcpy(base, value, arr->elem_size);
@@ -298,7 +298,7 @@ array* xx_array_add(array* a, bool a_temp,
         for (size_t i = 0; i < result->length; i++)
         {
             if (ptrs[i])
-                MVS_RegisterNew((uintptr_t)ptrs[i], 0, NULL);
+                MVS_RegisterNew((uintptr_t)ptrs[i], 0, a->element_deleter);
         }
     }
 
@@ -336,7 +336,7 @@ array* xx_array_add_elem(array* a, bool a_temp, void* elem)
         void* ptr = *(void**)elem;
 
         if (ptr)
-            MVS_RegisterNew((uintptr_t)ptr, 0, NULL);
+            MVS_RegisterNew((uintptr_t)ptr, 0, a->element_deleter);
     }
 
     if (a_temp)
@@ -623,18 +623,27 @@ string* xx_clone_string(string* ptr)
 int main()
 {
 	MVS_Init();
+	array* s = xx_init_array((string*[]) {xx_init_string("Hello"), xx_init_string("World"), xx_init_string("!"), }, 3, sizeof(string*), 1, xx_free_string);
+	MVS_RegisterNew((uintptr_t)s, sizeof(array), xx_free_array);
+	array* ss = s;
+	MVS_RegisterNew((uintptr_t)ss, sizeof(array), xx_free_array);
+	if (MVS_RefCount((uintptr_t)s) > 1)
 	{
-		int i = 0;
-		while(1)
-		{
-			if (!(i<10)) { break; }
-			{
-				printf("Hello, World!\n");
-			}
-			{
-				i = i+1;
-			}
-		}
+		array* xx_clone = xx_clone_array(s);
+		MVS_DetachPointer((uintptr_t)s);
+		string* xx_new_s = xx_init_string("Jello");
+		MVS_RegisterNew((uintptr_t)xx_new_s, sizeof(string), xx_free_string);
+		xx_array_set(xx_clone, 0, &xx_new_s);
+		s = xx_clone;
 	}
+	else
+	{
+		string* xx_new_s = xx_init_string("Jello");
+		MVS_RegisterNew((uintptr_t)xx_new_s, sizeof(string), xx_free_string);
+		xx_array_set(s, 0, &xx_new_s);
+	}
+	printf("%s", (*(string**)xx_array_get(ss, 0))->data);
+	MVS_DetachPointer((uintptr_t)s);
+	MVS_DetachPointer((uintptr_t)ss);
 	MVS_Destroy();
 }

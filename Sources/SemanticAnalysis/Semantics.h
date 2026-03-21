@@ -19,11 +19,17 @@ namespace val
 		std::unordered_map <std::string, bool> active;
 		std::unordered_map <std::string, std::string> option_to_prop;
 
-		bool in_match;
+		bool in_match{false};
+		bool is_prop_init{false};
+		std::string active_prop_for_init;
 		std::string active_prop, active_opt;
 
 		std::vector <std::string> block_allocated;
 		std::queue <std::string> printf_scanf_exprs;
+
+		/* Add current array type vars */
+		std::deque <std::string> arr_types;
+		std::string last_str_expr;
 
 		mutable CompileInfo compile_info;
 

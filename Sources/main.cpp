@@ -47,10 +47,12 @@ int main(int argc, char* argv[])
 		val::Semantics semantics(val_source_path.filename().string());
 		semantics.Analysis(AST);
 
-		
-
-		val::CGenerator codegen(semantics.GetCompileInfo());
+		val::CGenerator codegen(std::move(semantics.symbol_table), std::move(semantics.type_table), std::move(semantics.fn_table));
 		codegen.GenerateC_IR(AST, val_source_path.string());
+
+		std::cout << "Generate IR Successful\n";
+
+		return 0;
 
 		std::filesystem::path c_file = val_source_path;
 		c_file.replace_extension(".c");

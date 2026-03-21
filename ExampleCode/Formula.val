@@ -1,0 +1,25 @@
+property Formula
+{
+	Boolval: { bool val; }
+	Not: { Formula f; }
+	And: { Formula l, r; }
+	Or: { Formula l, r; }
+}
+
+fn eval(Formula f) -> bool
+{
+	match(f)
+	{
+		case Boolval -> { return f.val; }
+		case Not -> { return !eval(f.f); }
+		case And -> { return eval(f.l) && eval(f.r); }
+		case Or -> { return eval(f.l) || eval(f.r); }
+	}
+}
+
+Formula f_l = Boolval{true};
+Formula f_r = Boolval{false};
+Formula f = And{ f_l, f_r };
+Formula not_f = Not{ f };
+
+printf("!(1 & 0) = %d", eval(not_f));

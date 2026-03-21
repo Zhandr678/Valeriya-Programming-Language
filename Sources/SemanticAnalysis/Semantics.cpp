@@ -241,9 +241,7 @@ namespace val
             return expr.view_VarName().name();
         case selector::ArrayIndexExpr:
         {
-			auto array_expr = AnalyzeExpression(expr.view_ArrayIndex().array_expr(), 0);
-
-			return "*(" + std::get <ArrayKind>(array_expr).of_kind.type_name + "*)xx_array_get(" + ExprToStr(expr.view_ArrayIndex().array_expr()) + ", " + ExprToStr(expr.view_ArrayIndex().at()) + ")";
+            return "???";
         }
         case selector::BoolLiteralExpr:
             return expr.view_BoolLiteral().value() ? "1" : "0";
@@ -297,6 +295,15 @@ namespace val
                     ExprToStr(expr.view_Binary().rhs()) + ", " + (IsLvalue(expr.view_Binary().rhs()) ? "0)" : "1)");
             }
             else if (expr.view_Binary().op() == "+" &&
+                (std::holds_alternative <ArrayKind>(expr_left)) &&
+                (std::holds_alternative <ArrayKind>(expr_right))
+                )
+            {
+                return "xx_array_add(" +
+                    ExprToStr(expr.view_Binary().lhs()) + ", " + (IsLvalue(expr.view_Binary().lhs()) ? "0, " : "1, ") +
+                    ExprToStr(expr.view_Binary().rhs()) + ", " + (IsLvalue(expr.view_Binary().rhs()) ? "0)" : "1)");
+            }
+            else if (expr.view_Binary().op() == "+" &&
                 (std::holds_alternative <ObjectKind>(expr_left) && std::get <ObjectKind>(expr_left).type_name == "string") &&
                 (std::holds_alternative <ObjectKind>(expr_right) && (std::get <ObjectKind>(expr_right).type_name == "char")))
             {
@@ -304,7 +311,23 @@ namespace val
                     ExprToStr(expr.view_Binary().lhs()) + ", " + (IsLvalue(expr.view_Binary().lhs()) ? "0, " : "1, ") +
                     ExprToStr(expr.view_Binary().rhs()) + ")";
             }
-            
+            else if (expr.view_Binary().op() == "+" &&
+                (std::holds_alternative <ArrayKind>(expr_left)) &&
+                (std::holds_alternative <ObjectKind>(expr_right)))
+            {
+                std::string ret_expr = "xx_array_add_elem(" +
+                    ExprToStr(expr.view_Binary().lhs()) + ", " + (IsLvalue(expr.view_Binary().lhs()) ? "0, " : "1, ");
+                   
+                if (IsLvalue(expr.view_Binary().rhs()))
+                {
+                    ret_expr += ('&' + ExprToStr(expr.view_Binary().rhs()) + ')');
+                    return ret_expr;
+                }
+                else {
+                    auto elem_expr = AnalyzeExpression(expr.view_Binary().rhs(), 0);
+                    ret_expr += ("&(" + std::get <ObjectKind>(elem_expr).type_name + "){" + ExprToStr(expr.view_Binary().rhs()) + "}");
+                }
+            }
             else if (expr.view_Binary().op() == "-" && 
                 (std::holds_alternative <ObjectKind>(expr_left) && std::get <ObjectKind>(expr_left).type_name == "string") &&
                 (std::holds_alternative <ObjectKind>(expr_right) && (std::get <ObjectKind>(expr_right).type_name == "int" || 
@@ -313,13 +336,28 @@ namespace val
                 return "xx_string_sub_right(" + ExprToStr(expr.view_Binary().lhs()) + ", " + 
                     (IsLvalue(expr.view_Binary().lhs()) ? "0, " : "1, ") + ExprToStr(expr.view_Binary().rhs()) + ')';
             }
-
+            else if (expr.view_Binary().op() == "-" &&
+                (std::holds_alternative <ArrayKind>(expr_left)) &&
+                (std::holds_alternative <ObjectKind>(expr_right) && (std::get <ObjectKind>(expr_right).type_name == "int" ||
+                    std::get <ObjectKind>(expr_right).type_name == "uint")))
+            {
+                return "xx_array_sub_right(" + ExprToStr(expr.view_Binary().lhs()) + ", " +
+                    (IsLvalue(expr.view_Binary().lhs()) ? "0, " : "1, ") + ExprToStr(expr.view_Binary().rhs()) + ')';
+            }
             else if (expr.view_Binary().op() == "-" &&
                 (std::holds_alternative <ObjectKind>(expr_left) && (std::get <ObjectKind>(expr_left).type_name == "int" ||
                     std::get <ObjectKind>(expr_left).type_name == "uint")) &&
                 (std::holds_alternative <ObjectKind>(expr_right) && std::get <ObjectKind>(expr_right).type_name == "string"))
             {
                 return "xx_string_sub_left(" + ExprToStr(expr.view_Binary().lhs()) +
+                    ExprToStr(expr.view_Binary().rhs()) + ", " + (IsLvalue(expr.view_Binary().rhs()) ? "0)" : "1)");
+            }
+            else if (expr.view_Binary().op() == "-" &&
+                (std::holds_alternative <ObjectKind>(expr_left) && (std::get <ObjectKind>(expr_left).type_name == "int" ||
+                    std::get <ObjectKind>(expr_left).type_name == "uint")) &&
+                (std::holds_alternative <ArrayKind>(expr_right)))
+            {
+                return "xx_array_sub_left(" + ExprToStr(expr.view_Binary().lhs()) +
                     ExprToStr(expr.view_Binary().rhs()) + ", " + (IsLvalue(expr.view_Binary().rhs()) ? "0)" : "1)");
             }
 
@@ -329,12 +367,27 @@ namespace val
             return expr.view_Unary().op() + ExprToStr(expr.view_Unary().expr());
         case selector::InitListExpr:
         {
-            std::string init_list_str = "{ ";
+            if (expr.view_InitList().size() == 0)
+            {
+                return "NULL";
+            }
+            auto cur_arr_type = arr_types.front();
+            arr_types.pop_front();
+
+            std::string init_list_str;
+            if (IsPrimitive(cur_arr_type) && cur_arr_type != "string") {
+                init_list_str = "xx_init_array((" + cur_arr_type + "[]) { ";
+            }
+            else {
+                init_list_str = "xx_init_array((" + cur_arr_type + "*[]) { ";
+            }
             for (size_t i = 0; i < expr.view_InitList().size(); i++)
             {
                 init_list_str += ExprToStr(expr.view_InitList().exprs(i)) + ", ";
             }
-            return init_list_str + "}";
+            init_list_str += ("}, " + std::to_string(expr.view_InitList().size()) + ", sizeof(");
+            init_list_str += (IsPrimitive(cur_arr_type) ? cur_arr_type + "), 0, NULL" : "uintptr_t), 1, xx_free_" + cur_arr_type);
+            return init_list_str + ')';
         }
         case selector::StructInitExpr:
         {
@@ -516,7 +569,7 @@ namespace val
             const auto& view = var_init.view_ArrayInit();
             symbol_table[view.type_info().view_VarInit().var_name()] = 
                 ArrayKind{
-                    ExprToStr(view.init_expr()),
+                    last_str_expr,
                     view.is_dynamic(),
                     ObjectKind{ 
                         IsPrimitive(view.type_info().view_VarInit().type_name()), 
@@ -649,6 +702,7 @@ namespace val
 
         if (std::holds_alternative <ArrayKind>(arr_call))
         {
+            // arr_types.push_back(std::get <ArrayKind>(arr_call).of_kind.type_name);
             return std::get <ArrayKind>(arr_call).of_kind;
         }
         if (std::holds_alternative <ObjectKind>(arr_call) && std::get <ObjectKind>(arr_call).type_name == "string")
@@ -668,8 +722,7 @@ namespace val
         case selector::BoolLiteralExpr:
             return ObjectKind{ true, "bool" };
         case selector::IntLiteralExpr:
-            if (any_literal_expr.view_IntLiteral().value() < 0) { return ObjectKind{ true, "int" }; }
-            return ObjectKind{ true, "uint" };
+            return ObjectKind{ true, "int" };
         case selector::DoubleLiteralExpr:
             return ObjectKind{ true, "double" };
         case selector::CharLiteralExpr:
@@ -700,6 +753,7 @@ namespace val
 
         std::string name_of_field = view_fcall.field().option_is_VarName() ? 
             view_fcall.field().view_VarName().name() : view_fcall.field().view_ArrayIndex().array_expr().view_VarName().name();
+        
         if (std::holds_alternative <ArrayKind>(kind_of_caller))
         {
             throw SemanticException("Array Fields Cannot be Accessed by Field Name", filename, FieldCallExpr, line); // arrays cannot be accessed by field name
@@ -863,8 +917,9 @@ namespace val
                 );
             }
 
-            if (std::holds_alternative <ObjectKind>(AnalyzeExpression(view_fncall.args(0), line)) &&
-                std::get<ObjectKind>(AnalyzeExpression(view_fncall.args(0), line)).type_name != "string")
+            auto first_expr = AnalyzeExpression(view_fncall.args(0), line);
+            if (std::holds_alternative <ObjectKind>(first_expr) &&
+                std::get<ObjectKind>(first_expr).type_name != "string")
             {
                 throw SemanticException(
                     "scanf First Argument Must be String",
@@ -891,6 +946,7 @@ namespace val
 
                 auto expr_info = AnalyzeExpression(view_fncall.args(i), line);
 
+				auto expr_str = ExprToStr(view_fncall.args(i));
                 if (std::holds_alternative <ArrayKind>(expr_info))
                 {
                     throw SemanticException(
@@ -901,10 +957,10 @@ namespace val
                 }
 				else if (std::get <ObjectKind>(expr_info).type_name == "string")
                 {
-                    scanf_expr += ", " + ExprToStr(view_fncall.args(i)) + "->data";
+                    scanf_expr += ", " + expr_str + "->data";
                 }
                 else {
-                    scanf_expr += ", &" + ExprToStr(view_fncall.args(i));
+                    scanf_expr += ", &" + expr_str;
                 }
             }
 
@@ -1006,14 +1062,26 @@ namespace val
 
         if (IsNull(left_kind) && not IsNull(right_kind))
         {
+            if (view_binop.op() == "!=" || view_binop.op() == "==")
+            {
+                return ObjectKind{ true, "bool" };
+            }
             return right_kind;
         }
         else if (not IsNull(left_kind) && IsNull(right_kind))
         {
+            if (view_binop.op() == "!=" || view_binop.op() == "==")
+            {
+                return ObjectKind{ true, "bool" };
+            }
             return left_kind;
         }
         else if (IsNull(left_kind) && IsNull(right_kind))
         {
+            if (view_binop.op() == "!=" || view_binop.op() == "==")
+            {
+                return ObjectKind{ true, "bool" };
+            }
             return left_kind;
         }
 
@@ -1212,10 +1280,9 @@ namespace val
         }
 
         const auto& view_unary = unary_expr.view_Unary();
-
+        auto expr = AnalyzeExpression(view_unary.expr(), line);
         if (view_unary.op() == "-")
         {
-            auto expr = AnalyzeExpression(view_unary.expr(), line);
             if (CanBeAssigned(ObjectKind{ true, "int" }, expr))
             {
                 return ObjectKind{ true, "int" };
@@ -1229,7 +1296,7 @@ namespace val
         }
         else if (view_unary.op() == "!")
         {
-            if (CanBeAssigned(ObjectKind{ true, "bool" }, AnalyzeExpression(view_unary.expr(), line)))
+            if (CanBeAssigned(ObjectKind{ true, "bool" }, expr))
             {
                 return ObjectKind{ true, "bool" };
             }
@@ -1252,17 +1319,49 @@ namespace val
 
         if (view_inlist.size() == 0) { return ObjectKind{ true, "void" }; }
 
-        auto base_kind = AnalyzeExpression(view_inlist.exprs(0), line);
-
-        for (size_t i = 1; i < view_inlist.size(); i++)
+        if (is_prop_init)
         {
-            if (not CanBeAssigned(base_kind, AnalyzeExpression(view_inlist.exprs(i), line)))
+            for (size_t i = 0; i < view_inlist.size(); i++)
             {
-                throw SemanticException("Array Types Differ", filename, InitListExpr, line);
+                auto expr = AnalyzeExpression(view_inlist.exprs(i), line);
+                if (std::holds_alternative <ArrayKind>(expr))
+                {
+                    throw SemanticException("Nested Arrays are Forbidden", filename, InitListExpr, line);
+                }
+                if (IsPrimitive(std::get <ObjectKind>(expr).type_name))
+                {
+                    throw SemanticException("Property " + active_prop_for_init + " does not contain " + std::get <ObjectKind>(expr).type_name, filename, InitListExpr, line);
+                }
+                if (not option_to_prop.contains(std::get <ObjectKind>(expr).type_name) || option_to_prop.at(std::get <ObjectKind>(expr).type_name) != active_prop_for_init)
+                {
+                    throw SemanticException("Property " + active_prop_for_init + " does not contain " + std::get <ObjectKind>(expr).type_name, filename, InitListExpr, line);
+                }
             }
-        }
 
-        return ArrayKind{ std::to_string(view_inlist.size()), false, std::get <ObjectKind>(base_kind) };
+            arr_types.push_front(active_prop_for_init);
+            is_prop_init = false;
+            return ArrayKind{ std::to_string(view_inlist.size()), false, ObjectKind{ false, active_prop_for_init } };
+        }
+        else {
+            auto base_kind = AnalyzeExpression(view_inlist.exprs(0), line);
+
+            if (std::holds_alternative <ArrayKind>(base_kind))
+            {
+                throw SemanticException("Nested Arrays are Forbidden", filename, InitListExpr, line);
+            }
+
+            for (size_t i = 1; i < view_inlist.size(); i++)
+            {
+                if (not CanBeAssigned(base_kind, AnalyzeExpression(view_inlist.exprs(i), line)))
+                {
+                    throw SemanticException("Array Types Differ", filename, InitListExpr, line);
+                }
+            }
+
+            arr_types.push_front(std::get <ObjectKind>(base_kind).type_name);
+
+            return ArrayKind{ std::to_string(view_inlist.size()), false, std::get <ObjectKind>(base_kind) };
+        }
     }
 
     // done
@@ -1377,6 +1476,7 @@ namespace val
         }
 
         std::string expr_str = ExprToStr(view.init_expr());
+        last_str_expr = expr_str;
         if (expr_str != "NULL") {
             compile_info.valid_c_exprs.push({ expr_str, GetFieldType(init_kind), IsLvalue(view.init_expr()) });
         }
@@ -1426,7 +1526,7 @@ namespace val
 
         expr_str = ExprToStr(view.init_expr());
         if (expr_str != "NULL") {
-            compile_info.valid_c_exprs.push({ ExprToStr(view.init_expr()), GetFieldType(arr_init), IsLvalue(view.init_expr()) });
+            compile_info.valid_c_exprs.push({ expr_str, GetFieldType(arr_init), IsLvalue(view.init_expr()) });
         }
         AddVariable(array_init_stmt);
     }
@@ -1437,6 +1537,8 @@ namespace val
         {
             throw SemanticException("Unexpected Option " + block_stmt.sel(), filename, BlockOfStmt, GetLine(block_stmt));
         }
+        auto saved_block_allocated = std::move(block_allocated);
+        block_allocated.clear();
 
         const auto& seq = block_stmt.view_Block();
 
@@ -1537,6 +1639,7 @@ namespace val
             Deactivate(var);
         }
         block_allocated.clear();
+        block_allocated = std::move(saved_block_allocated);
 
         return returns;
     }
@@ -1596,6 +1699,8 @@ namespace val
         }
 
         const auto& view = for_stmt.view_ForLoop();
+        auto saved_block_allocated = std::move(block_allocated);
+        block_allocated.clear();
 
         if (view.init_part().option_is_Block())
         {
@@ -1634,28 +1739,35 @@ namespace val
         }
 
         AnalyzeLoopBody(view.forloop_body(), should_return, ret);
+
+        for (const auto& var : block_allocated)
+        {
+            Deactivate(var);
+        }
+        block_allocated.clear();
+        block_allocated = std::move(saved_block_allocated);
     }
 
     void Semantics::AnalyzeMakeFunction(const Statement& make_fn_stmt)
     {
-        if (not make_fn_stmt.option_is_MakeFunction()) 
+        if (not make_fn_stmt.option_is_MakeFunction())
         {
-			throw SemanticException("Unexpected Option " + make_fn_stmt.sel(), filename, MakeFunctionStmt, GetLine(make_fn_stmt));
+            throw SemanticException("Unexpected Option " + make_fn_stmt.sel(), filename, MakeFunctionStmt, GetLine(make_fn_stmt));
         }
 
         const auto& view = make_fn_stmt.view_MakeFunction();
 
-        if (NameExists(view.fn_name())) 
+        if (NameExists(view.fn_name()))
         {
-			throw SemanticException(view.fn_name() + " Already Exists", filename, MakeFunctionStmt, GetLine(make_fn_stmt));
+            throw SemanticException(view.fn_name() + " Already Exists", filename, MakeFunctionStmt, GetLine(make_fn_stmt));
         }
 
-        if (not TypeExists(view.ret_type_name())) 
+        if (not TypeExists(view.ret_type_name()))
         {
-			throw SemanticException("A Type " + view.ret_type_name() + " does not Exist", filename, MakeFunctionStmt, GetLine(make_fn_stmt));
+            throw SemanticException("A Type " + view.ret_type_name() + " does not Exist", filename, MakeFunctionStmt, GetLine(make_fn_stmt));
         }
 
-		std::unordered_set <std::string> has;
+        std::unordered_set <std::string> has;
         auto temp_st = std::move(symbol_table);
         std::vector <std::string> to_deactivate;
         symbol_table.clear();
@@ -1663,14 +1775,14 @@ namespace val
         {
             if (not NameExists(view.params(i).view_FnArgs().type_name()) && not IsPrimitive(view.params(i).view_FnArgs().type_name()))
             {
-				throw SemanticException("A Type " + view.params(i).view_FnArgs().type_name() + " does not Exist", filename, MakeFunctionStmt, GetLine(view.params(i)));
+                throw SemanticException("A Type " + view.params(i).view_FnArgs().type_name() + " does not Exist", filename, MakeFunctionStmt, GetLine(view.params(i)));
             }
 
             if (has.contains(view.params(i).view_FnArgs().var_name()))
             {
-				throw SemanticException("Parameter " + view.params(i).view_FnArgs().var_name() + " Already Exists", filename, MakeFunctionStmt, GetLine(view.params(i)));
+                throw SemanticException("Parameter " + view.params(i).view_FnArgs().var_name() + " Already Exists", filename, MakeFunctionStmt, GetLine(view.params(i)));
             }
-			has.insert(view.params(i).view_FnArgs().var_name());
+            has.insert(view.params(i).view_FnArgs().var_name());
 
             if (view.params(i).view_FnArgs().is_array())
             {
@@ -1682,29 +1794,32 @@ namespace val
                             IsPrimitive(view.params(i).view_FnArgs().type_name()),
                             view.params(i).view_FnArgs().type_name()
                         }
-                    };
+                };
                 active[view.params(i).view_FnArgs().var_name()] = true;
-				to_deactivate.push_back(view.params(i).view_FnArgs().var_name());
+                to_deactivate.push_back(view.params(i).view_FnArgs().var_name());
             }
             else {
                 symbol_table[view.params(i).view_FnArgs().var_name()] =
                     ObjectKind{
                             IsPrimitive(view.params(i).view_FnArgs().type_name()),
                             view.params(i).view_FnArgs().type_name()
-                    };
+                };
                 active[view.params(i).view_FnArgs().var_name()] = true;
-				to_deactivate.push_back(view.params(i).view_FnArgs().var_name());
+                to_deactivate.push_back(view.params(i).view_FnArgs().var_name());
             }
         }
+
+        // Register the function BEFORE analyzing the body so recursive calls resolve
+        AddFn(view.fn_name(), ConstructFn(make_fn_stmt));
 
         bool returns;
         bool should_return;
         if (view.is_array())
         {
             should_return = true;
-            returns = AnalyzeBlock(view.fn_body(), true, ArrayKind{ "", true, ObjectKind{ IsPrimitive(view.ret_type_name()), view.ret_type_name()}});
+            returns = AnalyzeBlock(view.fn_body(), true, ArrayKind{ "", true, ObjectKind{ IsPrimitive(view.ret_type_name()), view.ret_type_name()} });
         }
-        else if (view.ret_type_name() == "void") 
+        else if (view.ret_type_name() == "void")
         {
             should_return = false;
             returns = AnalyzeBlock(view.fn_body(), false, ObjectKind{ true, "void" });
@@ -1721,12 +1836,11 @@ namespace val
 
         for (const auto& str : to_deactivate)
         {
-			active[str] = false;
+            active[str] = false;
         }
 
         symbol_table.clear();
         symbol_table = std::move(temp_st);
-        AddFn(view.fn_name(), ConstructFn(make_fn_stmt));
     }
 
     void Semantics::AnalyzeMakeStruct(const Statement& make_struct_stmt)
@@ -1855,7 +1969,7 @@ namespace val
                 if (not CanBeAssigned(
                     ArrayKind{ ExprToStr(field_view.alloc_size()), field_view.is_dynamic(),
                     ObjectKind{ IsPrimitive(field_view.type_info().view_VarInit().type_name()), field_view.type_info().view_VarInit().type_name() } },
-                    AnalyzeExpression(field_view.init_expr(), field_view.line())))
+                    prop_opt_expr))
                 {
                     throw SemanticException("Expression does not Deduce to Array of Type " + field_view.type_info().view_VarInit().type_name(), filename, MakePropertyStmt, GetLine(view.inits(i)));
                 }
@@ -2063,7 +2177,7 @@ namespace val
         }
         std::string expr_str = ExprToStr(view.if_cond());
         if (expr_str != "NULL") {
-            compile_info.valid_c_exprs.push({ expr_str, GetFieldType(AnalyzeExpression(view.if_cond(), view.line())), IsLvalue(view.if_cond())});
+            compile_info.valid_c_exprs.push({ expr_str, GetFieldType(if_cond_expr), IsLvalue(view.if_cond())});
         }
 
         bool if_returns = AnalyzeBlock(view.if_body(), should_return, ret, in_loop);
@@ -2091,6 +2205,9 @@ namespace val
         {
             throw SemanticException("Unexpected Option " + block_stmt.sel(), filename, BlockOfStmt, GetLine(block_stmt));
         }
+
+        auto saved_block_allocated = std::move(block_allocated);
+        block_allocated.clear();
 
         const auto& seq = block_stmt.view_Block();
 
@@ -2191,7 +2308,8 @@ namespace val
         {
             Deactivate(var);
         }
-		block_allocated.clear();
+        block_allocated.clear();
+        block_allocated = std::move(saved_block_allocated);
         return returns;
     }
 

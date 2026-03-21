@@ -65,7 +65,7 @@ static val::Expression GenerateExpression(const std::vector <val::Expression>& e
 			return val::Expression(val::BinaryExpr, left_expr, right_expr, ops[i].attr);
 		}
 
-		else if (w < main_op_weight)
+		else if (w <= main_op_weight)
 		{
 			main_op_index = i;
 			main_op_weight = w;
