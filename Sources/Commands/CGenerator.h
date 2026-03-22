@@ -70,6 +70,7 @@ namespace val
 		std::optional <std::string> _IsArray(const std::string& var_name) const noexcept;
 		std::optional <std::string> _IsArray(const std::string& struct_name, const std::string& field_name) const noexcept;
 
+		bool IsExprTypeArray(const ExprType& expr);
 
 		std::string indent(size_t tabs) const noexcept;
 

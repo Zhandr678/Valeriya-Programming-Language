@@ -618,32 +618,92 @@ string* xx_clone_string(string* ptr)
     return clone;
 }
 
+typedef struct AA {
+	int a;
+	string* s;
+	array* ds;
+	} AA;
+
+void xx_free_AA(uintptr_t address)
+{
+	if (((AA*)address)->s != NULL)
+	{
+		MVS_DetachPointer((uintptr_t)((AA*)address)->s);
+	}
+	if (((AA*)address)->ds != NULL)
+	{
+		MVS_DetachPointer((uintptr_t)((AA*)address)->ds);
+	}
+	free(((AA*)address));
+}
+
+AA* xx_init_AA(int a, string* s, array* ds) 
+{
+	AA *xx_AA_init_ptr = malloc(sizeof(AA));
+	xx_AA_init_ptr->a = a;
+	xx_AA_init_ptr->s = s;
+	if (s != NULL) {
+		MVS_RegisterNew((uintptr_t)s, sizeof(string), xx_free_string);
+	}
+	xx_AA_init_ptr->ds = ds;
+		if (ds != NULL) {
+		MVS_RegisterNew((uintptr_t)ds, sizeof(array), xx_free_array);
+	}
+	return xx_AA_init_ptr;
+}
+
+AA* xx_clone_AA(AA* ptr) 
+{
+	if (ptr == NULL) { return NULL; }
+	AA* clone = xx_init_AA(ptr->a, xx_clone_string(ptr->s), xx_clone_array(ptr->ds));
+	MVS_RegisterNew((uintptr_t)clone, sizeof(AA), xx_free_AA);
+	return clone;
+}
+
 
 
 int main()
 {
 	MVS_Init();
-	array* s = xx_init_array((string*[]) {xx_init_string("Hello"), xx_init_string("World"), xx_init_string("!"), }, 3, sizeof(string*), 1, xx_free_string);
-	MVS_RegisterNew((uintptr_t)s, sizeof(array), xx_free_array);
-	array* ss = s;
-	MVS_RegisterNew((uintptr_t)ss, sizeof(array), xx_free_array);
-	if (MVS_RefCount((uintptr_t)s) > 1)
+	AA* inst = xx_init_AA(5, xx_init_string("Hello"), xx_init_array((double[]) {5.000000, 1.100000, 3.140000, 2.720000, }, 4, sizeof(double), 0, NULL));
+	MVS_RegisterNew((uintptr_t)inst, sizeof(AA), xx_free_AA);
+	AA* inst2 = inst;
+	MVS_RegisterNew((uintptr_t)inst2, sizeof(AA), xx_free_AA);
+	if (MVS_RefCount((uintptr_t)inst) > 1)
 	{
-		array* xx_clone = xx_clone_array(s);
-		MVS_DetachPointer((uintptr_t)s);
-		string* xx_new_s = xx_init_string("Jello");
-		MVS_RegisterNew((uintptr_t)xx_new_s, sizeof(string), xx_free_string);
-		xx_array_set(xx_clone, 0, &xx_new_s);
-		s = xx_clone;
+		AA* xx_clone = xx_clone_AA(inst);
+		MVS_DetachPointer((uintptr_t)inst);
+		array* xx_field_arr = xx_clone->ds;
+		if (MVS_RefCount((uintptr_t)xx_field_arr) > 1)
+		{
+			array* xx_arr_clone = xx_clone_array(xx_field_arr);
+			MVS_DetachPointer((uintptr_t)xx_field_arr);
+			xx_clone->ds = xx_arr_clone;
+			xx_array_set(xx_arr_clone, 0, &(double){10.000000});
+		}
+		else
+		{
+			xx_array_set(xx_field_arr, 0, &(double){10.000000});
+		}
+		inst = xx_clone;
 	}
 	else
 	{
-		string* xx_new_s = xx_init_string("Jello");
-		MVS_RegisterNew((uintptr_t)xx_new_s, sizeof(string), xx_free_string);
-		xx_array_set(s, 0, &xx_new_s);
+		array* xx_field_arr = inst->ds;
+		if (MVS_RefCount((uintptr_t)xx_field_arr) > 1)
+		{
+			array* xx_arr_clone = xx_clone_array(xx_field_arr);
+			MVS_DetachPointer((uintptr_t)xx_field_arr);
+			inst->ds = xx_arr_clone;
+			xx_array_set(xx_arr_clone, 0, &(double){10.000000});
+		}
+		else
+		{
+			xx_array_set(xx_field_arr, 0, &(double){10.000000});
+		}
 	}
-	printf("%s", (*(string**)xx_array_get(ss, 0))->data);
-	MVS_DetachPointer((uintptr_t)s);
-	MVS_DetachPointer((uintptr_t)ss);
+	printf("%f", (*(double*)xx_array_get(inst2->ds, 0)));
+	MVS_DetachPointer((uintptr_t)inst);
+	MVS_DetachPointer((uintptr_t)inst2);
 	MVS_Destroy();
 }

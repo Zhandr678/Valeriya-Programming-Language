@@ -649,14 +649,22 @@ std::string val::CGenerator::ToString(const Expression& expr) noexcept
     case selector::VarNameExpr:
         return expr.view_VarName().name();
     case selector::FieldCallExpr:
-        return ToString(expr.view_FieldCall().caller()) + "->" + ToString(expr.view_FieldCall().field());
+        return EvalExpression(expr).str_expr;
     case selector::StructInitExpr:
     {
         std::string s = "xx_init_" + expr.view_StructInit().struct_name() + "(";
         for (size_t i = 0; i < expr.view_StructInit().size(); i++)
         {
+            auto ini = EvalExpression(expr.view_StructInit().inits(i));
             if (i > 0) { s += ", "; }
-            s += (ToString(expr.view_StructInit().inits(i)));
+
+            if (ini.type == ExprType::String)
+            {
+                s += "xx_init_string(" + ini.str_expr + ")";
+            }
+            else {
+                s += ini.str_expr;
+            }
         }
         return s + ")";
     }
@@ -705,6 +713,58 @@ std::string val::CGenerator::ToString(const Expression& expr) noexcept
     case selector::InitListExpr:
     {
         return EvalExpression(expr).str_expr;
+    }
+    case selector::BinaryExpr:
+    {
+        auto left = EvalExpression(expr.view_Binary().lhs());
+        auto right = EvalExpression(expr.view_Binary().rhs());
+
+        if (expr.view_Binary().op() == "+")
+        {
+            if (left.type == ExprType::String && right.type == ExprType::String)
+            {
+                return "xx_string_add(" + left.str_expr + ", " + (left.is_lvalue ? "0, " : "1, ") +
+                    right.str_expr + ", " + (right.is_lvalue ? "0)" : "1)");
+            }
+            if (left.type == ExprType::String && right.type == ExprType::Primitive)
+            {
+                return "xx_string_add_char(" + left.str_expr + ", " + (left.is_lvalue ? "0, " : "1, ") +
+                    right.str_expr + ")";
+            }
+            if (IsExprTypeArray(left.type) && IsExprTypeArray(right.type))
+            {
+                return "xx_array_add(" + left.str_expr + ", " + (left.is_lvalue ? "0, " : "1, ") +
+                    right.str_expr + ", " + (right.is_lvalue ? "0)" : "1)");
+            }
+            if (IsExprTypeArray(left.type) && not IsExprTypeArray(right.type))
+            {
+                return "xx_array_add_elem(" + left.str_expr + ", " + (left.is_lvalue ? "0, " : "1, ") +
+                    right.str_expr + ")";
+            }
+        }
+        if (expr.view_Binary().op() == "-")
+        {
+            if (left.type == ExprType::String && right.type == ExprType::Primitive)
+            {
+                return "xx_string_sub_right(" + left.str_expr + ", " + (left.is_lvalue ? "0, " : "1, ") +
+                    right.str_expr + ")";
+            }
+            if (left.type == ExprType::Primitive && right.type == ExprType::String)
+            {
+                return "xx_string_sub_left(" + left.str_expr + ", " + right.str_expr + ", " + (right.is_lvalue ? "0)" : "1)");
+            }
+            if (IsExprTypeArray(left.type) && right.type == ExprType::Primitive)
+            {
+                return "xx_array_sub_right(" + left.str_expr + ", " + (left.is_lvalue ? "0, " : "1, ") +
+                    right.str_expr + ")";
+            }
+            if (left.type == ExprType::Primitive && IsExprTypeArray(right.type))
+            {
+                return "xx_array_sub_left(" + left.str_expr + ", " + right.str_expr + ", " + (right.is_lvalue ? "0)" : "1)");
+            }
+        }
+
+        return left.str_expr + expr.view_Binary().op() + right.str_expr;
     }
     default:
         return "???";
@@ -1006,8 +1066,10 @@ void val::CGenerator::GenStructClone(const Statement& struct_stmt, std::ostream&
     to << indent(tabs + 1) << view.struct_name() << "* clone = xx_init_" << view.struct_name() << "(";
 
     auto S = std::get <StructType>(type_table.at(view.struct_name()));
+    int i = 0;
     for (const auto& [field_name, var_kind] : S.fields)
     {
+        if (i > 0) { to << ", "; }
         if (_IsPrimitive(view.struct_name(), field_name) || _IsEnumType(view.struct_name(), field_name))
         {
             to << "ptr->" << field_name;
@@ -1023,6 +1085,7 @@ void val::CGenerator::GenStructClone(const Statement& struct_stmt, std::ostream&
         else {
             to << "xx_clone_array(ptr->" << field_name << ")";
         }
+        i++;
     }
 
     to << ");\n";
@@ -1735,6 +1798,12 @@ std::optional<std::string> val::CGenerator::_IsArray(const std::string& struct_n
         return arr->of_kind.type_name;
 
     return std::nullopt;
+}
+
+bool val::CGenerator::IsExprTypeArray(const ExprType& expr)
+{
+    return expr == ExprType::ArrayOfEnum || expr == ExprType::ArrayOfPrim || expr == ExprType::ArrayOfString
+        || expr == ExprType::ArrayOfStruct || expr == ExprType::ArrayOfProp;
 }
 
 ExprRet val::CGenerator::EvalExpression(const Expression& expr_call_stmt) noexcept
@@ -2515,12 +2584,14 @@ ExprRet val::CGenerator::EvalFieldCall(const Expression& field_call_expr) noexce
     auto caller_ret = EvalExpression(view.caller());
     
     ret.is_lvalue = caller_ret.is_lvalue;
-    ret.str_expr = ToString(field_call_expr);
+    ret.str_expr = caller_ret.str_expr;
 
     std::string field_name;
     if (view.field().option_is_VarName())
     {
         field_name = view.field().view_VarName().name();
+        ret.type_name = GetTypeName(std::get <StructType>(type_table.at(caller_ret.type_name)).fields.at(field_name));
+        ret.str_expr += "->" + field_name;
         if (_IsPrimitive(caller_ret.type_name, field_name))
         {
             ret.type = ExprType::Primitive;
@@ -2556,16 +2627,33 @@ ExprRet val::CGenerator::EvalFieldCall(const Expression& field_call_expr) noexce
     }
     else {
         field_name = view.field().view_ArrayIndex().array_expr().view_VarName().name();
-        
-		if (_IsString(caller_ret.type_name, field_name)) { ret.type = ExprType::String; }
-        else {
+        ret.type_name = GetTypeName(std::get <StructType>(type_table.at(caller_ret.type_name)).fields.at(field_name));
 
+        auto at_expr = EvalExpression(view.field().view_ArrayIndex().at());
+        
+		if (_IsString(caller_ret.type_name, field_name)) { 
+            ret.str_expr += "->" + field_name + "->data[" + at_expr.str_expr + "]";
+            ret.type = ExprType::Primitive; 
+        }
+        else {
             auto t = _IsArray(caller_ret.type_name, field_name);
 
-            if (*t == "string") { ret.type = ExprType::String; }
-            else if (*t == "uint" || *t == "int" || *t == "double" || *t == "char" || *t == "bool") { ret.type = ExprType::Primitive; }
-            else if (std::holds_alternative <EnumType>(type_table.at(*t))) { ret.type = ExprType::Enum; }
-            else if (std::holds_alternative <StructType>(type_table.at(*t))) { ret.type = ExprType::Struct; }
+            if (*t == "string") { 
+                ret.type = ExprType::String; 
+                ret.str_expr = "(*(string**)xx_array_get(" + caller_ret.str_expr + "->" + field_name + ", " + at_expr.str_expr + "))";
+            }
+            else if (*t == "uint" || *t == "int" || *t == "double" || *t == "char" || *t == "bool") { 
+                ret.type = ExprType::Primitive; 
+                ret.str_expr = "(*(" + *t + "*)xx_array_get(" + caller_ret.str_expr + "->" + field_name + ", " + at_expr.str_expr + "))";
+            }
+            else if (std::holds_alternative <EnumType>(type_table.at(*t))) { 
+                ret.str_expr = "(*(" + *t + "*)xx_array_get(" + caller_ret.str_expr + "->" + field_name + ", " + at_expr.str_expr + "))";
+                ret.type = ExprType::Enum; 
+            }
+            else if (std::holds_alternative <StructType>(type_table.at(*t))) { 
+                ret.str_expr = "(*(" + *t + "**)xx_array_get(" + caller_ret.str_expr + "->" + field_name + ", " + at_expr.str_expr + "))";
+                ret.type = ExprType::Struct; 
+            }
         }
     }
     

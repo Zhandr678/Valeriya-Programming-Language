@@ -1,7 +1,15 @@
-string s[] = { "Hello", "World", "!" };
+struct AA
+{
+	int a;
+	string s;
 
-string ss[] = s;
+	double ds[];
+}
 
-s[0] = "Jello";
+AA inst = AA{ 5, "Hello", { 5.0, 1.1, 3.14, 2.72 } };
 
-printf("%s", ss[0]);
+AA inst2 = inst;
+
+inst.ds[0] = 10.0;
+
+printf("%f", inst2.ds[0]);
