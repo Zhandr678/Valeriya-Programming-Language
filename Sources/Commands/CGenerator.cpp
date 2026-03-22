@@ -662,6 +662,10 @@ std::string val::CGenerator::ToString(const Expression& expr) noexcept
             {
                 s += "xx_init_string(" + ini.str_expr + ")";
             }
+            else if (ini.type == ExprType::Property && opt_to_prop.contains(ini.type_name))
+            {
+                s += "xx_init_" + opt_to_prop.at(ini.type_name) + "_" + ini.type_name + "(" + ini.str_expr + ")";
+            }
             else {
                 s += ini.str_expr;
             }
@@ -892,9 +896,40 @@ void val::CGenerator::GenReturn(const Statement& return_stmt, std::ostream& to, 
     to << ";\n";
 }
 
+void val::CGenerator::GenFnBlock(const Statement& fn_block, std::ostream& to, size_t tabs) noexcept
+{
+    to << indent(tabs) << "/* Skipping Fn Body */\n";
+}
+
 void val::CGenerator::GenMakeFn(const Statement& make_fn, std::ostream& to, size_t tabs) noexcept
 {
-    to << "/*Skipping FN*/\n";
+    const auto& view = make_fn.view_MakeFunction();
+
+    to << indent(tabs) << view.ret_type_name() << " " << view.fn_name() << "(";
+    for (size_t i = 0; i < view.size(); i++)
+    {
+        const auto& view_param = view.params(i).view_FnArgs();
+
+        if (i > 0) { to << ", "; }
+
+        if (view_param.is_array())
+        {
+            to << "array*";
+        }
+        else {
+            to << view_param.type_name();
+        }
+
+        if (view_param.is_inout())
+        {
+            to << "*";
+        }
+
+        to << " " << view_param.var_name();
+    }
+    to << ")\n";
+
+    GenBlock(view.fn_body(), to, tabs);
 }
 
 void val::CGenerator::GenStructDecl(const Statement& struct_stmt, std::ostream& to, size_t tabs) noexcept
@@ -1089,7 +1124,9 @@ void val::CGenerator::GenStructClone(const Statement& struct_stmt, std::ostream&
     }
 
     to << ");\n";
-    to << indent(tabs + 1) << "MVS_RegisterNew((uintptr_t)clone, sizeof(" << view.struct_name() << "), xx_free_" << view.struct_name() << ");\n";
+    if (not std::get <StructType>(type_table.at(view.struct_name())).fields.empty()) {
+        to << indent(tabs + 1) << "MVS_RegisterNew((uintptr_t)clone, sizeof(" << view.struct_name() << "), xx_free_" << view.struct_name() << ");\n";
+    }
     to << indent(tabs + 1) << "return clone;\n";
     to << indent(tabs) << "}\n\n";
 }
@@ -1235,6 +1272,7 @@ void val::CGenerator::GenMakeProperty(const Statement& property_stmt, std::ostre
     for (size_t i = 0; i < view.size(); i++)
     {
         GenStructDecl(view.opts(i), to, tabs);
+        opt_to_prop.insert({ view.opts(i).view_MakeStruct().struct_name(), view.prop_name() });
     }
 
     GenTagEnumProp(property_stmt, to, tabs);
@@ -1311,7 +1349,7 @@ void val::CGenerator::GenCaseProperty(const Statement& case_stmt, const std::str
     else {
         cur_prop_name = prop_type;
         cur_option_name = view.case_expr().view_VarName().name();
-        to << "xx_" << prop_type << "_option_is_" << view.case_expr().view_VarName().name() << "(" << prop_type << "))\n";
+        to << "xx_" << prop_type << "_option_is_" << view.case_expr().view_VarName().name() << "(" << prop_expr_name << "))\n";
     }
 
     GenBlock(view.case_body(), to, tabs);
@@ -1892,11 +1930,20 @@ void val::CGenerator::GenAssign(const Statement& assign_stmt, std::ostream& to, 
         }
         else if (lhs_expr.type == ExprType::Property)
         {
-            to << indent(tabs) << "MVS_DetachPointer((uintptr_t)" << lhs_expr.str_expr << ");\n";
-            to << indent(tabs) << lhs_expr.str_expr << " = xx_init_" << lhs_expr.type_name
-                << "_" << rhs_expr.type_name << "(" << rhs_expr.str_expr << ");\n";
-            to << indent(tabs) << "MVS_RegisterNew((uintptr_t)" << lhs_expr.str_expr
-                << ", sizeof(" << lhs_expr.type_name << "), xx_free_" << lhs_expr.type_name << ");\n";
+            if (rhs_expr.type_name == lhs_expr.type_name)
+            {
+                to << indent(tabs) << "MVS_DetachPointer((uintptr_t)" << lhs_expr.str_expr << ");\n";
+                to << indent(tabs) << lhs_expr.str_expr << " = " << rhs_expr.str_expr << ";\n";
+                to << indent(tabs) << "MVS_RegisterNew((uintptr_t)" << lhs_expr.str_expr
+                    << ", sizeof(" << lhs_expr.type_name << "), xx_free_" << lhs_expr.type_name << ");\n";
+            }
+            else if (opt_to_prop.at(rhs_expr.type_name) == lhs_expr.type_name) {
+                to << indent(tabs) << "MVS_DetachPointer((uintptr_t)" << lhs_expr.str_expr << ");\n";
+                to << indent(tabs) << lhs_expr.str_expr << " = xx_init_" << lhs_expr.type_name
+                    << "_" << rhs_expr.type_name << "(" << rhs_expr.str_expr << ");\n";
+                to << indent(tabs) << "MVS_RegisterNew((uintptr_t)" << lhs_expr.str_expr
+                    << ", sizeof(" << lhs_expr.type_name << "), xx_free_" << lhs_expr.type_name << ");\n";
+            }
         }
         else if (lhs_expr.type == ExprType::String)
         {
@@ -2590,8 +2637,17 @@ ExprRet val::CGenerator::EvalFieldCall(const Expression& field_call_expr) noexce
     if (view.field().option_is_VarName())
     {
         field_name = view.field().view_VarName().name();
-        ret.type_name = GetTypeName(std::get <StructType>(type_table.at(caller_ret.type_name)).fields.at(field_name));
-        ret.str_expr += "->" + field_name;
+
+        if (std::holds_alternative <StructType>(type_table.at(caller_ret.type_name)))
+        {
+            ret.type_name = GetTypeName(std::get <StructType>(type_table.at(caller_ret.type_name)).fields.at(field_name));
+            ret.str_expr += "->" + field_name;
+        }
+        else {
+            ret.type_name = GetTypeName(std::get <StructType>(type_table.at(cur_option_name)).fields.at(field_name));
+            ret.str_expr = caller_ret.str_expr + "->opts." + cur_option_name + "_opt->" + field_name;
+            caller_ret.type_name = cur_option_name;
+        }
         if (_IsPrimitive(caller_ret.type_name, field_name))
         {
             ret.type = ExprType::Primitive;
@@ -2613,7 +2669,7 @@ ExprRet val::CGenerator::EvalFieldCall(const Expression& field_call_expr) noexce
             ret.type = ExprType::String;
         }
         else {
-			if (_IsString(caller_ret.type_name, field_name)) { ret.type = ExprType::String; }
+            if (_IsString(caller_ret.type_name, field_name)) { ret.type = ExprType::String; }
             else {
                 auto t = _IsArray(caller_ret.type_name, field_name);
 
@@ -2930,7 +2986,7 @@ ExprRet val::CGenerator::EvalInitListExpr(const Expression& init_list_expr) noex
         }
         else if (fret.type == ExprType::Property)
         {
-            ret.str_expr = "xx_init_array((" + ret.type_name + "*[]) {";
+            ret.str_expr = "xx_init_array((" + opt_to_prop.at(ret.type_name) + "*[]) {";
             ret.type = ExprType::ArrayOfProp;
             break;
         }
@@ -2950,6 +3006,10 @@ ExprRet val::CGenerator::EvalInitListExpr(const Expression& init_list_expr) noex
         if (fret.type == ExprType::Null) 
         {
             ret.str_expr += "NULL, ";
+        }
+        else if (fret.type == ExprType::Property)
+        {
+            ret.str_expr += "xx_init_" + opt_to_prop.at(fret.type_name) + "_" + fret.type_name + "(" + fret.str_expr + "), ";
         }
         else if (fret.type == ExprType::String)
         {

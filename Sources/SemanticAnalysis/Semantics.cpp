@@ -1504,6 +1504,12 @@ namespace val
 			throw SemanticException("A Type " + view.type_info().view_VarInit().type_name() + " does not Exist", filename, ArrayInitStmt, GetLine(array_init_stmt));
         }
 
+        if (std::holds_alternative <PropertyType>(type_table.at(view.type_info().view_VarInit().type_name())))
+        {
+            is_prop_init = true;
+            active_prop_for_init = view.type_info().view_VarInit().type_name();
+        }
+
         auto arr_init = AnalyzeExpression(view.init_expr(), view.line());
         if (not CanBeAssigned(ArrayKind{
             ExprToStr(view.alloc_size()), 

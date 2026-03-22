@@ -40,6 +40,7 @@ namespace val
 
 		std::unordered_map <std::string, std::string> opt_to_prop;
 
+		bool last_expr_was_property{false};
 		bool in_match{false};
 		std::string cur_prop_name;
 		std::string cur_option_name;
@@ -100,6 +101,7 @@ namespace val
 
 		void GenReturn(const Statement& return_stmt, std::ostream& to, size_t tabs) noexcept;
 
+		void GenFnBlock(const Statement& fn_block, std::ostream& to, size_t tabs) noexcept;
 		void GenMakeFn(const Statement& make_fn, std::ostream& to, size_t tabs) noexcept;
 
 		void GenStructDecl(const Statement& struct_stmt, std::ostream& to, size_t tabs) noexcept;

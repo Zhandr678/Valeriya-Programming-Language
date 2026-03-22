@@ -1,15 +1,21 @@
-struct AA
+property cmd
 {
-	int a;
-	string s;
-
-	double ds[];
+	move: { double dx, dy; }
+	rotate: { double angle; }
+	stop: {}
 }
 
-AA inst = AA{ 5, "Hello", { 5.0, 1.1, 3.14, 2.72 } };
+cmd cc[] = { move{ 5.0, 5.0 }, rotate{ 90.0 }, stop{} };
 
-AA inst2 = inst;
+for (int i = 0; i < len(cc); i = i + 1) 
+{
 
-inst.ds[0] = 10.0;
+	printf("[Command Number %d] ", i);
+	match(cc[i])
+	{
+		case move -> { printf("moved: %f, %f\n", cc[i].dx, cc[i].dy); }
+		case rotate -> { printf("rotated: %f\n", cc[i].angle); }
+		case stop -> { printf("stopped\n"); }
+	}
 
-printf("%f", inst2.ds[0]);
+}
